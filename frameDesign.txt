@@ -1,0 +1,7 @@
+Experiment steps:
+1. baseline:
+	1.1 pytorch implement of FoldingNet
+	1.2 point cloud sampling from Arch data set
+	1.3 Dataset split to training and test data
+	1.4 SVM algorithm for classification
+2. branched AE for building co-segmentation
