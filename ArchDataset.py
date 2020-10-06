@@ -2,6 +2,7 @@ from torch.utils.data.dataset import Dataset
 import numpy as np
 import os.path
 from glob import glob
+import torch
 
 def translate_pointcloud(pointcloud):
     xyz1 = np.random.uniform(low=2./3., high=3./2., size=[3])
@@ -22,8 +23,8 @@ def rotate_pointcloud(pointcloud):
     pointcloud[:,[0,2]] = pointcloud[:,[0,2]].dot(rotation_matrix) # random rotation (x,z)
     return pointcloud
 
-
-Class ArchDataset(Dataset):
+#ArCH dataset load
+class ArchDataset(Dataset):
     def __init__(self, root, num_points=2048, random_translate=False, random_rotate=False,
             random_jitter=False, split='traiin'):
         self.random_translate = random_translate
@@ -57,7 +58,7 @@ Class ArchDataset(Dataset):
             scene_points = data[:,0:3].astype('float32')
             segment_label = data[:,3].astype('int64')
             log_string(str(scene_points.shape))
-            f.close()
+
             all_data.append(scene_points)
             all_label.append(segment_label)
 
@@ -79,19 +80,18 @@ Class ArchDataset(Dataset):
         label = torch.from_numpy(np.array([label]).astype(np.int64))
         label = label.squeeze(0)
 
-        return(data, label)
+        return(point_set, label)
 
 
     def __len__(self):
         return self.data.shape[0]
 
 
-LOG_FOUT = open('log.txt', w)
+LOG_FOUT = open('log.txt', 'w')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()
     print(out_str)
 
 
-if __name__ =='__main__':
-
+#if __name__ =='__main__':

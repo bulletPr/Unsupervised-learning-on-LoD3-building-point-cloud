@@ -9,9 +9,9 @@ import os
 import os.path
 import torch
 import numpy as np
-import sys
-import torchvision.transforms as transforms
-import torch.utils.data as data
+from glob import glob
+import json
+import h5py
 
 
 #translate original point clouds
@@ -19,7 +19,7 @@ def translate_pointcloud(pointcloud):
     xyz1 = np.random.uniform(low=2./3., high=3./2., size=[3])
     xyz2 = np.random.uniform(low=-0.2, high=0.2, size=[3])
 
-    tanslated_pointcloud = np.add(np.multiply(pointcloud, xyz1),xyz2).astype('float32')
+    translated_pointcloud = np.add(np.multiply(pointcloud, xyz1),xyz2).astype('float32')
     return translated_pointcloud
 
 #jitter point clouds operation
@@ -61,6 +61,7 @@ class Dataset(data.Dataset):
 
         self.path_h5py_all = []
         self.path_json_all = []
+        
         if self.split in ['train', 'trainval','all']:
             self.get_path('train')
         if self.dataset_name in ['shapenetpart','shapenetcorev2']:
@@ -68,7 +69,10 @@ class Dataset(data.Dataset):
                 self.get_path('val')
         if self.split in ['test', 'all']:
             self.get_path('test')
-
+        
+        self.path_h5py_all.sort()
+        data, label = self.load_h5py(self.path_h5py_all)
+        
         self.data = np.concatenate(data, axis=0)
         self.label = np.concatenate(label, axis=0)
 
@@ -77,7 +81,7 @@ class Dataset(data.Dataset):
         self.path_h5py_all += glob(path_h5py)
         if self.load_name:
             path_join = os.path.join(self.root, '%s*_id2name.json'%type)
-            self.path_json_all += glob(path_json)
+            self.path_json_all += glob(path_join)
         return
 
     def load_h5py(self, path):
@@ -119,7 +123,7 @@ class Dataset(data.Dataset):
         if self.load_name:
             return point_set, label, name
         else:
-            return pointset, label
+            return point_set, label
 
     def __len__(self):
         return self.data.shape[0]
