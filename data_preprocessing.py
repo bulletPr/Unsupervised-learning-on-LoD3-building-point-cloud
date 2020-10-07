@@ -36,7 +36,7 @@ def rotate_pointcloud(pointcloud):
     pointcloud[:,[0,2]]=pointcloud[:,[0,2]].dot(rotate_matrix)
     return pointcloud
 
-#shapeNet, ArCH and ModelNet dataset
+#shapeNet and ModelNet dataset
 class Dataset(data.Dataset):
     def __init__(self, root, dataset_name='modelnet40', num_points=2048,
             split='train', load_name=False, random_rotate=False, random_jitter=False,

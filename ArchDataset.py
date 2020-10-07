@@ -26,23 +26,28 @@ def rotate_pointcloud(pointcloud):
 #ArCH dataset load
 class ArchDataset(Dataset):
     def __init__(self, root, num_points=2048, random_translate=False, random_rotate=False,
-            random_jitter=False, split='traiin'):
+            random_jitter=False, split='Traiin'):
         self.random_translate = random_translate
         self.random_jitter = random_jitter
         self.random_rotate = random_rotate
         self.cat2id = {}
+        self.root = os.path.join(root, self.split)
 
         #parse category file
-        with open(os.path.join(self.root, self.split + 'synsetoffset2category.txt'),'r') as f:
+        with open(os.path.join(self.root, 'synsetoffset2category.txt'),'r') as f:
             for line in f:
                 ls = line.strip().split()
                 self.cate2id[ls[0]] = ls[1]
         self.classes = dict(zip(sorted(self.cat2id), range(len(self.cat2id))))
         log_string("classes:" + self.classes)
-
+        
+        #acquire all train/test file
         self.path_txt_all = []
-        path_txt = os.path.joint(self.root, self.split + '*.txt')
+        path_txt = os.path.joint(self.root, '*.txt')
         self.path_txt_all += glob(path_txt)
+        
+        #load data and label
+        self.path_h5py_all.sort()
         data, label = self.load_txt(self.path_txt_all)
 
         self.data = np.concatenate(data, axis=0)
@@ -94,4 +99,17 @@ def log_string(out_str):
     print(out_str)
 
 
-#if __name__ =='__main__':
+if __name__ == '__main__':
+    dataset = "arch"
+    datapath = "./data/arch"
+
+    if dataset == 'arch':
+        print("Segmentation task:")
+        d = ShapeNetDataset(root=datapath, num_points=2048, class_choice=['Chair'], classification=False)
+        ps, seg = d[0]
+        print(ps.size(), ps.type(), seg.size(), seg.type())
+
+        print("Classification task:")
+        d = ShapeNetDataset(root=datapath, num_points=2048, classification=True)
+        ps, cls = d[0]
+        print(ps.size(), ps.type(), cls.size(), cls.type())
