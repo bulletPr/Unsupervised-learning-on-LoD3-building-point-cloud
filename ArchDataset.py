@@ -40,12 +40,12 @@ class ArchDataset(Dataset):
                 self.cate2id[ls[0]] = ls[1]
         self.classes = dict(zip(sorted(self.cat2id), range(len(self.cat2id))))
         log_string("classes:" + self.classes)
-        
+
         #acquire all train/test file
         self.path_txt_all = []
         path_txt = os.path.joint(self.root, '*.txt')
         self.path_txt_all += glob(path_txt)
-        
+
         #load data and label
         self.path_h5py_all.sort()
         data, label = self.load_txt(self.path_txt_all)
@@ -105,11 +105,7 @@ if __name__ == '__main__':
 
     if dataset == 'arch':
         print("Segmentation task:")
-        d = ShapeNetDataset(root=datapath, num_points=2048, class_choice=['Chair'], classification=False)
-        ps, seg = d[0]
-        print(ps.size(), ps.type(), seg.size(), seg.type())
-
-        print("Classification task:")
-        d = ShapeNetDataset(root=datapath, num_points=2048, classification=True)
-        ps, cls = d[0]
-        print(ps.size(), ps.type(), cls.size(), cls.type())
+        d = ArchDataset(datapath, num_points=2048, random_translate=False, random_rotate=False)
+        print("datasize:", d.__len__())
+        ps, label = d[0]
+        print(ps.size(), ps.type(), label.size(), label.type())
