@@ -1,4 +1,5 @@
 from torch.utils.data.dataset import Dataset
+import os
 import numpy as np
 import os.path
 from glob import glob
@@ -26,40 +27,44 @@ def rotate_pointcloud(pointcloud):
 #ArCH dataset load
 class ArchDataset(Dataset):
     def __init__(self, root, num_points=2048, random_translate=False, random_rotate=False,
-            random_jitter=False, split='Traiin'):
+            random_jitter=False, split='Train'):
         self.random_translate = random_translate
         self.random_jitter = random_jitter
         self.random_rotate = random_rotate
         self.cat2id = {}
-        self.root = os.path.join(root, self.split)
+        self.root = os.path.join(root, split)
 
         #parse category file
-        with open(os.path.join(self.root, 'synsetoffset2category.txt'),'r') as f:
+        with open(os.path.join(os.getcwd(), 'synsetoffset2category.txt'),'r') as f:
             for line in f:
                 ls = line.strip().split()
-                self.cate2id[ls[0]] = ls[1]
+                self.cat2id[ls[0]] = ls[1]
         self.classes = dict(zip(sorted(self.cat2id), range(len(self.cat2id))))
-        log_string("classes:" + self.classes)
+        log_string("classes:" + str(self.classes))
 
         #acquire all train/test file
         self.path_txt_all = []
-        path_txt = os.path.joint(self.root, '*.txt')
-        self.path_txt_all += glob(path_txt)
+        path_txt = self.root
+        log_string("check path:" + str(path_txt))
+        self.path_txt_all = os.listdir(path_txt)
 
         #load data and label
-        self.path_h5py_all.sort()
-        data, label = self.load_txt(self.path_txt_all)
+        self.path_txt_all.sort()
+        log_string("check all files:" + str(self.path_txt_all))
+        data, label = self.load_txt(self.path_txt_all, path_txt)
 
         self.data = np.concatenate(data, axis=0)
         self.label = np.concatenate(label, axis=0)
+        log_string("data and label concatenated")
 
 
     #parse point cloud files
-    def load_txt(self, path):
+    def load_txt(self, path, root):
         all_data = []
         all_label = []
         for filename in path:
-            data = np.loadtxt(filename)
+            f = root +"/"+ filename
+            data = np.loadtxt(f)
             scene_points = data[:,0:3].astype('float32')
             segment_label = data[:,3].astype('int64')
             log_string(str(scene_points.shape))
@@ -84,7 +89,7 @@ class ArchDataset(Dataset):
         point_set = torch.from_numpy(point_set)
         label = torch.from_numpy(np.array([label]).astype(np.int64))
         label = label.squeeze(0)
-
+        log_string("read point_set: [" + str(index) + "]")
         return(point_set, label)
 
 
@@ -102,10 +107,11 @@ def log_string(out_str):
 if __name__ == '__main__':
     dataset = "arch"
     datapath = "./data/arch"
+    split = 'Train'
 
     if dataset == 'arch':
         print("Segmentation task:")
-        d = ArchDataset(datapath, num_points=2048, random_translate=False, random_rotate=False)
+        d = ArchDataset(datapath, num_points=2048, split=split, random_translate=False, random_rotate=False)
         print("datasize:", d.__len__())
         ps, label = d[0]
         print(ps.size(), ps.type(), label.size(), label.type())
