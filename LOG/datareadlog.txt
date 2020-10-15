@@ -1,0 +1,18 @@
+classes:{'arch': 0, 'column': 1, 'door_window': 2, 'floor': 3, 'moldings': 4, 'other': 5, 'roof': 6, 'stairs': 7, 'vault': 8, 'wall': 9}
+check path:./data/arch/Train
+check all files:['10_SStefano_portico_1.txt', '11_SStefano_portico_2.txt', '12_KAS_pavillion_1.txt', '13_KAS_pavillion_2.txt', '14_TRE_square.txt', '15_OTT_church.txt', '1_TR_cloister.txt', '2_TR_church.txt', '3_VAL_room.txt', '4_CA_church.txt', '5_SMV_chapel_1.txt', '6_SMV_chapel_2to4.txt', '7_SMV_chapel_24.txt', '8_SMV_chapel_28.txt', '9_SMV_chapel_10.txt']
+(3783699, 3)
+(10047392, 3)
+(598380, 3)
+(325818, 3)
+(9409239, 3)
+(13302903, 3)
+(15740229, 3)
+(20862139, 3)
+(4188066, 3)
+(4850807, 3)
+(3783412, 3)
+(6326871, 3)
+(3571064, 3)
+(3156753, 3)
+(2193189, 3)
