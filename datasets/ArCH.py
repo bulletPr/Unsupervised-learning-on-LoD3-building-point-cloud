@@ -35,47 +35,47 @@ class ArchDataset(Dataset):
         self.root = os.path.join(root, split)
 
         #parse category file
-        with open(os.path.join(os.getcwd(), 'synsetoffset2category.txt'),'r') as f:
+        with open('synsetoffset2category.txt','r') as f:
             for line in f:
                 ls = line.strip().split()
                 self.cat2id[ls[0]] = ls[1]
         self.classes = dict(zip(sorted(self.cat2id), range(len(self.cat2id))))
+        f.close()
         log_string("classes:" + str(self.classes))
 
         #acquire all train/test file
         self.path_txt_all = []
-        path_txt = self.root
-        log_string("check path:" + str(path_txt))
-        self.path_txt_all = os.listdir(path_txt)
+        self.path_txt_all = os.listdir(self.root)
+        log_string("check paths:" + str(self.path_txt_all))
 
-        #load data and label
+        #save data path
         self.path_txt_all.sort()
-        log_string("check all files:" + str(self.path_txt_all))
-        data, label = self.load_txt(self.path_txt_all, path_txt)
-
-        self.data = np.concatenate(data, axis=0)
-        self.label = np.concatenate(label, axis=0)
-        log_string("data and label concatenated")
-
+        log_string("check sorted paths:" + str(self.path_txt_all))
 
     #parse point cloud files
-    def load_txt(self, path, root):
+    def load_txt(self, filename):
         all_data = []
         all_label = []
-        for filename in path:
-            f = root +"/"+ filename
-            data = np.loadtxt(f)
-            scene_points = data[:,0:3].astype('float32')
-            segment_label = data[:,3].astype('int64')
-            log_string(str(scene_points.shape))
+        log_string("loading data in: " + str(filename))
+        data = np.loadtxt(filename)
+        scene_xyz = data[:,0:3].astype(np.float32)
+        points_colors = data[:,3:6].astype(np.int8)
+        segment_label = data[:,6].astype(np.int8)
+        log_string(str(scene_xyz.shape))
 
-            all_data.append(scene_points)
-            all_label.append(segment_label)
+        return scene_xyz, points_colors, segment_label
 
 
     def __getitem__(self, index):
-        point_set = self.data[index][:self.num_points]
-        label = self.label[index]
+        log_string("check all files:" + str(self.path_txt_all))
+        filename = os.path.join(self.root, self.path_txt_all[index])
+        point_set, color, label = self.load_txt(filename)
+
+        #self.data = np.concatenate(data, axis=0)
+        #self.label = np.concatenate(label, axis=0)
+
+        #point_set = point_set[:self.num_points]
+        #label = label[]
 
         # data augument
         if self.random_translate:
@@ -87,17 +87,18 @@ class ArchDataset(Dataset):
 
         #conver numpy array to pytorch Tensor
         point_set = torch.from_numpy(point_set)
-        label = torch.from_numpy(np.array([label]).astype(np.int64))
+        #colors = torch.from_numpy()
+        label = torch.from_numpy(np.array([label]).astype(np.int8))
         label = label.squeeze(0)
         log_string("read point_set: [" + str(index) + "]")
-        return(point_set, label)
+        return point_set, label
 
 
     def __len__(self):
-        return self.data.shape[0]
+        return len(self.path_txt_all)
 
 
-LOG_FOUT = open('log.txt', 'w')
+LOG_FOUT = open(os.path.join('..', 'LOG','datareadlog.txt'), 'w')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()
@@ -105,13 +106,13 @@ def log_string(out_str):
 
 
 if __name__ == '__main__':
-    dataset = "arch"
-    datapath = "./data/arch"
+    datasetname = "arch"
+    datapath = os.path.join("../data", datasetname)
     split = 'Train'
 
-    if dataset == 'arch':
+    if datasetname == 'arch':
         print("Segmentation task:")
         d = ArchDataset(datapath, num_points=2048, split=split, random_translate=False, random_rotate=False)
         print("datasize:", d.__len__())
-        ps, label = d[0]
+        ps, label = d[8]
         print(ps.size(), ps.type(), label.size(), label.type())
