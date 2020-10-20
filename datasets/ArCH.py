@@ -1,28 +1,33 @@
+#
+#
+#      0=================================0
+#      |    Project Name                 |
+#      0=================================0
+#
+#
+# ----------------------------------------------------------------------------------------------------------------------
+#
+#      Implements read ArchDatase
+#
+# ----------------------------------------------------------------------------------------------------------------------
+#
+#      YUWEI CAO - 2020/10/2
+#
+#
 from torch.utils.data.dataset import Dataset
 import os
 import numpy as np
 import os.path
-from glob import glob
+import glob
 import torch
-
-def translate_pointcloud(pointcloud):
-    xyz1 = np.random.uniform(low=2./3., high=3./2., size=[3])
-    xyz2 = np.random.uniform(low=-0.2, high=0.2, size=[3])
-    translated_pointcloud = np.add(np.multiply(pointcloud, xyz1), xyz2).astype('float32')
-    return translated_pointcloud
-
-
-def jitter_pointcloud(pointcloud, sigma=0.01, clip=0.02):
-    N, C = pointcloud.shape
-    pointcloud += np.clip(sigma * np.random.randn(N, C), -1*clip, clip)
-    return pointcloud
-
-
-def rotate_pointcloud(pointcloud):
-    theta = np.pi*2 * np.random.rand()
-    rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)],[np.sin(theta), np.cos(theta)]])
-    pointcloud[:,[0,2]] = pointcloud[:,[0,2]].dot(rotation_matrix) # random rotation (x,z)
-    return pointcloud
+import sys
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+sys.path.append(BASE_DIR)
+sys.path.append(os.path.join(BASE_DIR, '../utils'))
+import pc_utils
+from pc_utils import translate_pointcloud, jitter_pointcloud, rotate_pointcloud
+from pc_utils import load_txt
 
 #ArCH dataset load
 class ArchDataset(Dataset):
@@ -52,24 +57,11 @@ class ArchDataset(Dataset):
         self.path_txt_all.sort()
         log_string("check sorted paths:" + str(self.path_txt_all))
 
-    #parse point cloud files
-    def load_txt(self, filename):
-        all_data = []
-        all_label = []
-        log_string("loading data in: " + str(filename))
-        data = np.loadtxt(filename)
-        scene_xyz = data[:,0:3].astype(np.float32)
-        points_colors = data[:,3:6].astype(np.int8)
-        segment_label = data[:,6].astype(np.int8)
-        log_string(str(scene_xyz.shape))
-
-        return scene_xyz, points_colors, segment_label
-
 
     def __getitem__(self, index):
         log_string("check all files:" + str(self.path_txt_all))
         filename = os.path.join(self.root, self.path_txt_all[index])
-        point_set, color, label = self.load_txt(filename)
+        point_set, color, norms, label = load_txt(filename)
 
         #self.data = np.concatenate(data, axis=0)
         #self.label = np.concatenate(label, axis=0)

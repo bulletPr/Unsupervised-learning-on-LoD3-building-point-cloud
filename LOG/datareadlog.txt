@@ -2,6 +2,4 @@ classes:{'arch': 0, 'column': 1, 'door_window': 2, 'floor': 3, 'moldings': 4, 'o
 check paths:['1_TR_cloister.txt', '8_SMV_chapel_28.txt', '2_TR_church.txt', '9_SMV_chapel_10.txt', '4_CA_church.txt', '6_SMV_chapel_2to4.txt', '7_SMV_chapel_24.txt', '3_VAL_room.txt', '5_SMV_chapel_1.txt']
 check sorted paths:['1_TR_cloister.txt', '2_TR_church.txt', '3_VAL_room.txt', '4_CA_church.txt', '5_SMV_chapel_1.txt', '6_SMV_chapel_2to4.txt', '7_SMV_chapel_24.txt', '8_SMV_chapel_28.txt', '9_SMV_chapel_10.txt']
 check all files:['1_TR_cloister.txt', '2_TR_church.txt', '3_VAL_room.txt', '4_CA_church.txt', '5_SMV_chapel_1.txt', '6_SMV_chapel_2to4.txt', '7_SMV_chapel_24.txt', '8_SMV_chapel_28.txt', '9_SMV_chapel_10.txt']
-loading data in: ../data/arch/Train/9_SMV_chapel_10.txt
-(2193189, 3)
 read point_set: [8]
