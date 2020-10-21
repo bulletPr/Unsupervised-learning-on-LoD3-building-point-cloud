@@ -20,6 +20,7 @@
 # import packages
 # ----------------------------------------
 import numpy as np
+import h5py
 
 # ----------------------------------------
 # Point cloud argument
@@ -69,8 +70,6 @@ def shuffle_pointcloud(pointcloud, label):
 
 #parse point cloud files
 def load_txt(filename):
-    all_data = []
-    all_label = []
     data = np.loadtxt(filename)
     scene_xyz = data[:,0:3].astype(np.float32)
     points_colors = data[:,3:6].astype(np.int8)
@@ -86,6 +85,65 @@ def write_ply(points, filename, text=True):
     vertex = np.array(points, dtype=[('x', 'f4'), ('y', 'f4'),('z', 'f4')])
     el = PlyElement.describe(vertex, 'vertex', comments=['vertices'])
     PlyData([el], text=text).write(filename)
+
+# ----------------------------------------------------------------
+# Following are the helper functions to load save/load HDF5 files
+# ----------------------------------------------------------------
+
+# Write numpy array data and label to h5_filename
+def save_h5_data_label_normal(h5_filename, data, label, normal, 
+		data_dtype='float32', label_dtype='uint8', normal_dtype='float32'):
+    h5_fout = h5py.File(h5_filename)
+    h5_fout.create_dataset(
+            'data', data=data,
+            compression='gzip', compression_opts=4,
+            dtype=data_dtype)
+    h5_fout.create_dataset(
+            'normal', data=normal,
+            compression='gzip', compression_opts=4,
+            dtype=normal_dtype)
+    h5_fout.create_dataset(
+            'label', data=label,
+            compression='gzip', compression_opts=1,
+            dtype=label_dtype)
+    h5_fout.close()
+
+
+# Write numpy array data and label to h5_filename
+def save_h5(h5_filename, data, label, data_dtype='uint8', label_dtype='uint8'):
+    h5_fout = h5py.File(h5_filename)
+    h5_fout.create_dataset(
+            'data', data=data,
+            compression='gzip', compression_opts=4,
+            dtype=data_dtype)
+    h5_fout.create_dataset(
+            'label', data=label,
+            compression='gzip', compression_opts=1,
+            dtype=label_dtype)
+    h5_fout.close()
+
+# Read numpy array data and label from h5_filename
+def load_h5_data_label_normal(h5_filename):
+    f = h5py.File(h5_filename)
+    data = f['data'][:]
+    label = f['label'][:]
+    normal = f['normal'][:]
+    return (data, label, normal)
+
+# Read numpy array data and label from h5_filename
+def load_h5_data_label_seg(h5_filename):
+    f = h5py.File(h5_filename)
+    data = f['data'][:]
+    label = f['label'][:]
+    seg = f['pid'][:]
+    return (data, label, seg)
+
+# Read numpy array data and label from h5_filename
+def load_h5(h5_filename):
+    f = h5py.File(h5_filename)
+    data = f['data'][:]
+    label = f['label'][:]
+    return (data, label)
 
 
 # ----------------------------------------

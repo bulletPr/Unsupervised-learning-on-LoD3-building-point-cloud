@@ -73,7 +73,7 @@ def sample_data_label(data, label, num_sample):
 # Split scene into blocks
 # -----------------------------------------------------------------------------
 def scenetoblocks(data, label, num_point, block_size=1.0, stride=1.0, sampling=False,
-        sampling_num=None, sample_aug=1):
+        sample_num=None, sample_aug=1):
     """
     Prepare block training data.
     Args:
@@ -155,13 +155,9 @@ def scenetoblocks_plus(data_label, num_point, block_size, stride,
 
 def scenetoblocks_wrapper(data_label_filename, num_point, block_size=1.0, stride=1.0,
                         sampling=False, sample_num=None, sample_aug=1):
-    if data_label_filename[-3:] == 'txt':
-        data_label = np.loadtxt(data_label_filename)
-    elif data_label_filename[-3:] == 'npy':
-        data_label = np.load(data_label_filename)
-    else:
-        print('Unknown file type! exiting.')
-        exit()
+    data_label = np.loadtxt(data_label_filename)
+    data_label = data_label[:,0:7]
+
     return scenetoblocks_plus(data_label, num_point, block_size, stride,
                             sampling, sample_num, sample_aug)
 
@@ -193,13 +189,9 @@ def scenetoblocks_plus_normalized(data_label, num_point, block_size, stride,
 
 def scenetoblocks_wrapper_normalized(data_label_filename, num_point, block_size=1.0, stride=1.0,
                                  sampling=False, sample_num=None, sample_aug=1):
-    if data_label_filename[-3:] == 'txt':
-        data_label = np.loadtxt(data_label_filename)
-    elif data_label_filename[-3:] == 'npy':
-        data_label = np.load(data_label_filename)
-    else:
-        print('Unknown file type! exiting.')
-        exit()
+    data_label = np.loadtxt(data_label_filename)
+    data_label = data_label[:,0:7]
+
     return scenetoblocks_plus_normalized(data_label, num_point, block_size, stride,
                                        sampling, sample_num, sample_aug)
 
@@ -297,7 +289,7 @@ def inferbatch_num(data, label, batch_size):
 if __name__ == '__main__':
     building_path = os.path.join(DATA_PATH, '12_KAS_pavillion_1.txt')
     NUM_POINT = 2048
-    current_data, current_label = scenetoblocks_wrapper_normalized(building_path, NUM_POINT)
+    current_data, current_label = scenetoblocks_wrapper_normalized(building_path, num_point=NUM_POINT)
     print("finish spliting!")
     log_string("splited data size: ")
     log_string("current_data: " + str(current_data.shape)) #(93,2048,9)
