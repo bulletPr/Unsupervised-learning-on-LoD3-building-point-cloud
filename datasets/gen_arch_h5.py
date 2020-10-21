@@ -75,7 +75,7 @@ def insert_batch(data, label, last_batch=False):
            h5_batch_label[buffer_size:buffer_size+capacity, ...] = label[0:capacity, ...]
         # Save batch data and label to h5 file, reset buffer_size
         h5_filename =  output_filename_prefix + '_' + str(h5_index) + '.h5'
-        data_prep_util.save_h5(h5_filename, h5_batch_data, h5_batch_label, data_dtype, label_dtype)
+        pc_utils.save_h5(h5_filename, h5_batch_data, h5_batch_label, data_dtype, label_dtype)
         print('Stored {0} with size {1}'.format(h5_filename, h5_batch_data.shape[0]))
         h5_index += 1
         buffer_size = 0
