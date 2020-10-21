@@ -24,10 +24,12 @@ import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
-sys.path.append(os.path.join(BASE_DIR, '../utils'))
-import pc_utils
+sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import translate_pointcloud, jitter_pointcloud, rotate_pointcloud
-from pc_utils import load_txt
+from pc_utils import load_h5
+import common
+DATA_DIR = os.path.join(ROOT_DIR, 'data')
+
 
 #ArCH dataset load
 class ArchDataset(Dataset):
@@ -61,21 +63,15 @@ class ArchDataset(Dataset):
     def __getitem__(self, index):
         log_string("check all files:" + str(self.path_txt_all))
         filename = os.path.join(self.root, self.path_txt_all[index])
-        point_set, color, norms, label = load_txt(filename)
-
-        #self.data = np.concatenate(data, axis=0)
-        #self.label = np.concatenate(label, axis=0)
-
-        #point_set = point_set[:self.num_points]
-        #label = label[]
-
+        #point_set, label = common.scenetoblocks_wrapper_normalized(filename, num_point=2048)
+        point_set, label = load_h5(filename)
         # data augument
         if self.random_translate:
-            point_set = translate_pointcloud(point_set)
+            point_set = translate_pointcloud(point_set[:,0:3])
         if self.random_jitter:
-            point_set = jitter_pointcloud(point_set)
+            point_set = jitter_pointcloud(point_set[:,0:3])
         if self.random_rotate:
-            point_set = rotate_pointcloud(point_set)
+            point_set = rotate_pointcloud(point_set[:,0:3])
 
         #conver numpy array to pytorch Tensor
         point_set = torch.from_numpy(point_set)
@@ -90,7 +86,7 @@ class ArchDataset(Dataset):
         return len(self.path_txt_all)
 
 
-LOG_FOUT = open(os.path.join('..', 'LOG','datareadlog.txt'), 'w')
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'w')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()
@@ -98,13 +94,13 @@ def log_string(out_str):
 
 
 if __name__ == '__main__':
-    datasetname = "arch"
-    datapath = os.path.join("../data", datasetname)
-    split = 'Train'
+    datasetname = "arch_hdf5_data"
+    datapath = os.path.join(DATA_DIR, datasetname)
+    split = 'train'
 
     if datasetname == 'arch':
         print("Segmentation task:")
         d = ArchDataset(datapath, num_points=2048, split=split, random_translate=False, random_rotate=False)
         print("datasize:", d.__len__())
-        ps, label = d[8]
+        ps, label = d[0]
         print(ps.size(), ps.type(), label.size(), label.type())

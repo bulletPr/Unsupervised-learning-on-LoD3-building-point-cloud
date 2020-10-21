@@ -12,7 +12,11 @@ import numpy as np
 from glob import glob
 import json
 import h5py
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+import sys
+sys.path.append(BASE_DIR)
+ROOT_DIR = os.path.dirname(BASE_DIR)
+DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
 #translate original point clouds
 def translate_pointcloud(pointcloud):
@@ -127,3 +131,14 @@ class Dataset(data.Dataset):
 
     def __len__(self):
         return self.data.shape[0]
+
+
+if __name__ == '__main__':
+    datasetname = "shapenetcorev2"
+
+    if datasetname == 'shapenetcorev2':
+        print("Segmentation task:")
+        d = Dataset(DATA_DIR, dataset_name=datasetname, num_points=2048, random_translate=False, random_rotate=False)
+        print("datasize:", d.__len__())
+        ps, label = d[-1]
+        print(ps.size(), ps.type(), label.size(), label.type())
