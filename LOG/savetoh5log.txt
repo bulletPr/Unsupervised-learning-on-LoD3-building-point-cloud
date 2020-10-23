@@ -1,0 +1,1 @@
+input file: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/1_TR_cloister.txt

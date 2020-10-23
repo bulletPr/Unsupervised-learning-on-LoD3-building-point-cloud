@@ -43,6 +43,3 @@ if __name__ == '__main__':
         print("points: ", pts.shape, pts.type)
         print("segs: ", seg.shape, seg.type)
         break
-
-
-

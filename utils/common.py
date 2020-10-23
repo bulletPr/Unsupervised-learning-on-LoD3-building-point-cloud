@@ -116,7 +116,8 @@ def scenetoblocks(data, label, num_point, block_size=1.0, stride=1.0, sampling=F
             ybeg = np.random.uniform(-block_size, limit[1])
             xbeg_list.append(xbeg)
             ybeg_list.append(ybeg)
-
+    log_string("block number: " + str(num_block_x)+", " + str(num_block_y))
+    log_string("block ind list: " + str(xbeg_list) + "," + str(ybeg_list))
     #Collect blocks
     block_data_list = []
     block_label_list = []
@@ -138,12 +139,13 @@ def scenetoblocks(data, label, num_point, block_size=1.0, stride=1.0, sampling=F
            sample_data_label(block_data, block_label, num_point)
        block_data_list.append(np.expand_dims(block_data_sampled, 0))
        block_label_list.append(np.expand_dims(block_label_sampled, 0))
+       log_string("block data list size: " + str(block_data_list.size[0]))
 
     return np.concatenate(block_data_list, 0), \
            np.concatenate(block_label_list, 0)
 
 def scenetoblocks_plus(data_label, num_point, block_size, stride,
-                     random_sample, sample_num, sample_aug):
+                     sampling, sample_num, sample_aug):
     """ room2block wit RGB preprocessing.
     """
     data = data_label[:,0:6]
@@ -157,6 +159,7 @@ def scenetoblocks_wrapper(data_label_filename, num_point, block_size=1.0, stride
                         sampling=False, sample_num=None, sample_aug=1):
     data_label = np.loadtxt(data_label_filename)
     data_label = data_label[:,0:7]
+    log_string("input scene: " + data_label_filename + " and shape: " + str(data_label.shape))
 
     return scenetoblocks_plus(data_label, num_point, block_size, stride,
                             sampling, sample_num, sample_aug)
@@ -194,6 +197,12 @@ def scenetoblocks_wrapper_normalized(data_label_filename, num_point, block_size=
 
     return scenetoblocks_plus_normalized(data_label, num_point, block_size, stride,
                                        sampling, sample_num, sample_aug)
+
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','splitblock_log.txt'), 'w')
+def log_string(out_str):
+    LOG_FOUT.write(out_str + '\n')
+    LOG_FOUT.flush()
+    print(out_str)
 
 def room2samples(data, label, sample_num_point):
     """ Prepare whole room samples.
@@ -284,7 +293,7 @@ def inferbatch_num(data, label, batch_size):
     log_string('current data size: ' + str(current_data.shape) + 'current label size: ' + str(current_label.shape))
     return current_data, current_label, num_batches
 
-
+"""
 # test
 if __name__ == '__main__':
     building_path = os.path.join(DATA_PATH, '12_KAS_pavillion_1.txt')
@@ -296,3 +305,4 @@ if __name__ == '__main__':
     log_string("current_label: " + str(current_label.shape)) #(93,2048)
     batch_size = 8
     batch_data, batch_label, num_batches = inferbatch_num(current_data, current_label, batch_size)
+"""
