@@ -21,6 +21,8 @@
 # ----------------------------------------
 import numpy as np
 import h5py
+import common
+import os.path
 
 # ----------------------------------------
 # Point cloud argument
@@ -69,14 +71,16 @@ def shuffle_pointcloud(pointcloud, label):
 # ----------------------------------------
 
 #parse point cloud files
-def load_txt(filename):
-    data = np.loadtxt(filename)
-    scene_xyz = data[:,0:3].astype(np.float32)
-    points_colors = data[:,3:6].astype(np.int8)
-    points_norms = data[:,7:10]
-    segment_label = data[:,6].astype(np.int8)
-
-    return scene_xyz, points_colors, points_norms, segment_label
+def load_txt(root, path):
+    all_data = []
+    all_label = []
+    for filename in path:
+        filename = os.path.join(root, filename)
+        print("check filename: " + filename)
+        data, label = common.scenetoblocks_wrapper(filename, num_point=2048) 
+        all_data.append(data)
+        all_label.append(label)
+    return all_data, all_label
 
 
 def write_ply(points, filename, text=True):

@@ -17,7 +17,10 @@ import sys
 sys.path.append(BASE_DIR)
 ROOT_DIR = os.path.dirname(BASE_DIR)
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
+sys.path.append(os.path.join(ROOT_DIR, 'utils'))
+import pc_utils
 
+"""
 #translate original point clouds
 def translate_pointcloud(pointcloud):
     xyz1 = np.random.uniform(low=2./3., high=3./2., size=[3])
@@ -39,7 +42,7 @@ def rotate_pointcloud(pointcloud):
     #random rotate(x,z)
     pointcloud[:,[0,2]]=pointcloud[:,[0,2]].dot(rotate_matrix)
     return pointcloud
-
+"""
 #shapeNet and ModelNet dataset
 class Dataset(data.Dataset):
     def __init__(self, root, dataset_name='modelnet40', num_points=2048,
@@ -88,6 +91,14 @@ class Dataset(data.Dataset):
             self.path_json_all += glob(path_join)
         return
 
+    def get_path(self, type):
+        path_h5py = os.path.join(self.root, '*%s*.h5'%type)
+        self.path_h5py_all += glob(path_h5py)
+        if self.load_name:
+            path_json = os.path.join(self.root, '%s*_id2name.json'%type)
+            self.path_json_all += glob(path_json)
+        return
+
     def load_h5py(self, path):
         all_data = []
         all_label = []
@@ -114,11 +125,11 @@ class Dataset(data.Dataset):
         if self.load_name:
             name = self.name[item]
         if self.random_rotate:
-            point_set = rotate_pointcloud(point_set)
-        if self.random_jitter_pointcloud:
-            point_set = jitter_pointcloud(point_set)
-        if self.random_translate_pointcloud:
-            point_set = translate_pointcloud(point_set)
+            point_set = pc_utils.rotate_pointcloud(point_set)
+        if self.random_jitter:
+            point_set = pc_utils.jitter_pointcloud(point_set)
+        if self.random_translate:
+            point_set = pc_utils.translate_pointcloud(point_set)
 
         point_set = torch.from_numpy(point_set)
         label = torch.from_numpy(np.array([label]).astype(np.int64))
@@ -138,7 +149,7 @@ if __name__ == '__main__':
 
     if datasetname == 'shapenetcorev2':
         print("Segmentation task:")
-        d = Dataset(DATA_DIR, dataset_name=datasetname, num_points=2048, random_translate=False, random_rotate=False)
+        d = Dataset(DATA_DIR, dataset_name=datasetname, num_points=2048)
         print("datasize:", d.__len__())
         ps, label = d[-1]
         print(ps.size(), ps.type(), label.size(), label.type())
