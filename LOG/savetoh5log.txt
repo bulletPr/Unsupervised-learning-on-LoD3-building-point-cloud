@@ -1,1 +1,6 @@
 input file: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/1_TR_cloister.txt
+output file size: (693, 2048, 6), (693, 2048)
+sample number now: 693now insert_batch
+now in enough space location, store data in memory
+finish 0 times
+input file: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/15_OTT_church.txt

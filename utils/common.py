@@ -117,7 +117,6 @@ def scenetoblocks(data, label, num_point, block_size=1.0, stride=1.0, sampling=F
             xbeg_list.append(xbeg)
             ybeg_list.append(ybeg)
     log_string("block number: " + str(num_block_x)+", " + str(num_block_y))
-    log_string("block ind list: " + str(xbeg_list) + "," + str(ybeg_list))
     #Collect blocks
     block_data_list = []
     block_label_list = []
@@ -139,7 +138,7 @@ def scenetoblocks(data, label, num_point, block_size=1.0, stride=1.0, sampling=F
            sample_data_label(block_data, block_label, num_point)
        block_data_list.append(np.expand_dims(block_data_sampled, 0))
        block_label_list.append(np.expand_dims(block_label_sampled, 0))
-       log_string("block data list size: " + str(block_data_list.size[0]))
+    log_string("block data list size: " + str(len(block_data_list)))
 
     return np.concatenate(block_data_list, 0), \
            np.concatenate(block_label_list, 0)

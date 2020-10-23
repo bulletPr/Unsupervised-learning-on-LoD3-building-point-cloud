@@ -1,0 +1,3 @@
+input scene: ../data/arch/Train/13_KAS_pavillion_2.txt and shape: (325818, 7)
+block number: 84, 44
+block data list size: 48

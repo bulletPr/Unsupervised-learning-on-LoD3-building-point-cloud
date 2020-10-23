@@ -26,7 +26,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import translate_pointcloud, jitter_pointcloud, rotate_pointcloud
-from pc_utils import load_h5
+from pc_utils import load_txt
 import common
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
@@ -53,18 +53,24 @@ class ArchDataset(Dataset):
         #acquire all train/test file
         self.path_txt_all = []
         self.path_txt_all = os.listdir(self.root)
+
         log_string("check paths:" + str(self.path_txt_all))
 
         #save data path
         self.path_txt_all.sort()
-        log_string("check sorted paths:" + str(self.path_txt_all))
+        log_string("check sorted paths:" + str(self.root) + str(self.path_txt_all))
 
+        data, label = load_txt(self.root, self.path_txt_all)
+        log_string("shape of data: " + str(len(data)))
+        log_string("shape of label: " + str(len(label)))
+
+        self.data = np.concatenate(data, axis=0)
+        self.label = np.concatenate(label, axis=0)
+        log_string("shape after concatenate: " + str(self.data.shape))
 
     def __getitem__(self, index):
-        log_string("check all files:" + str(self.path_txt_all))
-        filename = os.path.join(self.root, self.path_txt_all[index])
-        #point_set, label = common.scenetoblocks_wrapper_normalized(filename, num_point=2048)
-        point_set, label = load_h5(filename)
+        point_set = self.data[index]
+        label = self.label[index]
         # data augument
         if self.random_translate:
             point_set = translate_pointcloud(point_set[:,0:3])
@@ -83,7 +89,7 @@ class ArchDataset(Dataset):
 
 
     def __len__(self):
-        return len(self.path_txt_all)
+        return self.data.shape[0]
 
 
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'w')
