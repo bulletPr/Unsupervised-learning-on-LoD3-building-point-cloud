@@ -67,6 +67,7 @@ def insert_batch(data, label, last_batch=False):
         h5_batch_data[buffer_size:buffer_size+data_size, ...] = data
         h5_batch_label[buffer_size:buffer_size+data_size] = label
         buffer_size += data_size
+        log_string("now in enough space location, store data in memory")
     else: # not enough space
         capacity = h5_batch_data.shape[0] - buffer_size
         assert(capacity>=0)
@@ -80,6 +81,7 @@ def insert_batch(data, label, last_batch=False):
         h5_index += 1
         buffer_size = 0
         # recursive call
+        log_string("now insert rest data to h5 batch again" + str(data[capacity:, ...].shape))
         insert_batch(data[capacity:, ...], label[capacity:, ...], last_batch)
     if last_batch and buffer_size > 0:
         h5_filename =  output_filename_prefix + '_' + str(h5_index) + '.h5'
@@ -87,20 +89,32 @@ def insert_batch(data, label, last_batch=False):
         print('Stored {0} with size {1}'.format(h5_filename, buffer_size))
         h5_index += 1
         buffer_size = 0
+        log_string("in last batch!")
     return
+
+
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','savetoh5log.txt'), 'w')
+def log_string(out_str):
+    LOG_FOUT.write(out_str + '\n')
+    LOG_FOUT.flush()
+    print(out_str)
+
 
 sample_cnt = 0
 for i, data_label_filename in enumerate(path_txt_all):
     data_label_filename = os.path.join(arch_data_dir, data_label_filename)
-    print(data_label_filename)
-    data, label = common.scenetoblocks_wrapper_normalized(data_label_filename, NUM_POINT, block_size=1.0,
+    log_string("input file: " + data_label_filename)
+    data, label = common.scenetoblocks_wrapper(data_label_filename, NUM_POINT, block_size=1.0,
             stride=1.0)
     print('{0}, {1}'.format(data.shape, label.shape))
+    log_string("output file size: " + str(data.shape) + ', ' + str(label.shape))
     for _ in range(data.shape[0]):
         fout_building.write(os.path.basename(data_label_filename)[0:-4]+'\n')
 
     sample_cnt += data.shape[0]
+    log_string("sample number now: {0}".format(sample_cnt)+"now insert_batch")
     insert_batch(data, label, i == len(path_txt_all)-1)
+    log_string("finish {0} times".format(i))
 
 fout_building.close()
 print("Total samples: {0}".format(sample_cnt))
