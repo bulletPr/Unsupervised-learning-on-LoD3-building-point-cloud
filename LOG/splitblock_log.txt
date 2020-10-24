@@ -1,3 +1,21 @@
-input scene: ../data/arch/Train/13_KAS_pavillion_2.txt and shape: (325818, 7)
+input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/2_TR_church.txt and shape: (20862139, 7)
+block number: 93, 46
+block data list size: 641
+input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/9_SMV_chapel_10.txt and shape: (2193189, 7)
+block number: 51, 62
+block data list size: 110
+input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/4_CA_church.txt and shape: (4850807, 7)
+block number: 92, 36
+block data list size: 333
+input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/12_KAS_pavillion_1.txt and shape: (598380, 7)
+block number: 84, 57
+block data list size: 93
+input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/13_KAS_pavillion_2.txt and shape: (325818, 7)
 block number: 84, 44
 block data list size: 48
+input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/14_TRE_square.txt and shape: (9409239, 7)
+block number: 62, 78
+block data list size: 450
+input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/11_SStefano_portico_2.txt and shape: (10047392, 7)
+block number: 47, 71
+block data list size: 11
