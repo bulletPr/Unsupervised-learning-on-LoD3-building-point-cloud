@@ -6,21 +6,21 @@
 
 The baseline of experiment 1 is FoldingNet, and the plan of this experiment is:
 
-  [x] - step1: acquire datasets
-  [x] - step2: read datasets by pytorch.data.datset
-  [x] - step3: split scene into blocks
-  [x] - step4: big dataset sampling (see Semantic3D, S3DIS, KIITI preprocessing methods)
-  [x] - step5: load splited and sampled data into batches and pytorch dataloader
-  [x] - step6: FoldingNet Model
-  [x] - step7: chamful loss
-  [ ] - step8: Training strategies
-  [ ] - step9: Inference process
-  [ ] - classification(svm) implementation
-  [ ] - performance analysis
-  [ ] - improve by branch AE
-  [ ] - performance analysis
-  [ ] - Ablation study
-  [ ] - Visualization
+  * [x] - step1: acquire datasets
+  * [x] - step2: read datasets by pytorch.data.datset
+  * [x] - step3: split scene into blocks
+  * [x] - step4: big dataset sampling (see Semantic3D, S3DIS, KIITI preprocessing methods)
+  * [x] - step5: load splited and sampled data into batches and pytorch dataloader
+  * [x] - step6: FoldingNet Model
+  * [x] - step7: chamful loss
+  * [ ] - step8: Training strategies
+  * [ ] - step9: Inference process
+  * [ ] - classification(svm) implementation
+  * [ ] - performance analysis
+  * [ ] - improve by branch AE
+  * [ ] - performance analysis
+  * [ ] - Ablation study
+  * [ ] - Visualization
 
 # Objects!
 
