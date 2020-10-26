@@ -41,18 +41,11 @@ from net_utils import Logger
 class Reconstruct_Trainer(object):
     def __init__(self, args):
         self.dataset_name = args.dataset
-        if args.epoch != None:
-            self.epoch = args.epoch
-        elif args.encoder == 'foldnet':
-            self.epochs = 278
-        elif args.encoder == 'dgcnn_cls':
-            self.epoch == 250
-        elif args.encoder == 'dgcnn_seg':
-            self.epoch == 290
+        self.epochs = args.epochs
         self.batch_size = args.batch_size
         self.data_dir = os.path.join(ROOT_DIR, 'data', self.dataset_name)
         self.snapshot_interval = args.snapshot_interval
-        self.no_cuda = args.no_cuda
+        self.gpu_mode = args.gpu_mode
         self.model_path = args.model_path
 
         # create output directory and files
@@ -84,7 +77,7 @@ class Reconstruct_Trainer(object):
             else:
                 shutil.rmtree(self.tboard_dir)
                 os.makedirs(self.tboard_dir)
-        sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'network_log.txt'))
+        sys.stdout = Logger(os.path.join(snapshor_root, 'network_log.txt'))
         self.write = SummaryWriter(log_dir = self.tboard_dir)
         print(str(args))
 
@@ -93,6 +86,8 @@ class Reconstruct_Trainer(object):
         print("training set size: ", self.train_loader.dataset.__len__())
 
         self.test_loader = get_dataloader(root=self.data_dir, split='Test', batch_size=args.batch_size, num_workers=args.workers)
+        print("testing set size: ", self.test_loader.dataset.__len__())
+
         self.model = DGCNN_FoldNet(args)
 
         # load model to gpu
@@ -109,4 +104,89 @@ class Reconstruct_Trainer(object):
 
 
     def train(self):
-        
+       self.train_hist={
+               'loss': [],
+               'per_epoch_time': [],
+               'total_time': []
+        }
+
+        best_loss = 1000000000
+
+        # start epoch index
+        if self.model_path != '':
+            start_epoch = self.model_path[-7:-4]
+            if start_epoch[0] == '_':
+                start_epoch = start_epoch[1:]
+            start_epoch=int(start_epoch)
+        else:
+            start_epoch = 0
+
+        # start training
+        print('training start!!!')
+        start_time = time.time()
+        self.model.train()
+        for epoch in range(start_epoch, self.epochs):
+            loss = self.train_epoch(epoch)
+
+            # save snapeshot
+            if (epoch+1) % self.snapshot_interval == 0 or epoch == 0:
+                self._snapshot(epoch+1)
+                if loss < best_loss:
+                    best_loss = loss
+                    self._snapshot('best')
+
+            # save tensorboard
+            if self.writer:
+                self.writer.add_scalar('Train Loss', self.train_hist['loss'][-1], epoch)
+                self.writer.add_scalar('Learning Rate', self._get_lr(), epoch)
+
+        # finish all epochs
+        self._snapshot(epoch+1)
+        if loss < best_loss:
+            best_loss = loss
+            self._snapshot('best')
+        self.train_hist['total_time'].append(time.time()-start_time)
+        print("Avg one epoch time: %.2f, total %d epoches time: %.2f" % (np.mean(self.train_hist['per_epoch_time']),
+            self.epoch+1, self.train_hist['total_time'][0]))
+        print("Training finish!... save training results")
+
+
+    def train_epoch(self, epoch):
+        epoch_start_time = time.time()
+        loss_buf = []
+        num_batch int(len(self.train_loader.dataset)/self.batch_size)
+        for iter, (pts, _) in enumerate(self.train_loader):
+            if self.gpu_mode:
+                pts = pts.cuda()
+
+            # forward
+            self.optimizer.zero_grad()
+            output, _ = self.model(pts)
+            loss = self.model.get_loss(pts, output)
+            # backward
+            loss.backward()
+            self.optimizer.zero_grad()
+            loss_buf.append(loss.detach().cpu().numpy())
+
+        # finish one epoch
+        epoch_time = time.time() - epoch_start_time
+        self.train_hist['per_epoch_time'].append(epoch_time)
+        self.train_hist['loss'].append(np.mean(loss_buf))
+        print(f'Epoch {epoch+1}: Loss {np.mean(loss_buf)}, time {epoch_time:.4f}s')
+        return np.mean(loss_buf)
+
+
+    def _snapshot(self, epoch):
+        save_dir = os.path.join(self.save_dir, self.dataset_name)
+        torch.save(self.model.state_dict(), save_dir+"_"+str(epoch)+'.pkl')
+        print(f"Save model to {save_dir}_{str(epoch)}.pkl")
+
+
+    def _load_pretrain(self, pretrain):
+        state_dict = torch.load(pretrain, map_location='cpu')
+        self.model.load_state_dict(state_dict)
+        print(f"Load model from {pretrain}.pkl")
+
+
+    def _get_lr(self, group=0):
+        return self.optimizer.param_groups[group]['lr']
