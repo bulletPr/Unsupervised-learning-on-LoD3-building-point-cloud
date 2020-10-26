@@ -88,9 +88,25 @@ class Reconstruct_Trainer(object):
         self.write = SummaryWriter(log_dir = self.tboard_dir)
         print(str(args))
 
-        # get gpu id
-        gids = ''.join(args.gup.split())
-        self.gpu_ids = [int(gid) for gid in gids.split('')]
-        self.first_gpu = self.gpu_ids[0]
+        # load dataset by dataloader
+        self.train_loader = get_dataloader(root=self.data_dir, batch_size=args.batch_size, num_workers=args.workers)
+        print("training set size: ", self.train_loader.dataset.__len__())
+
+        self.test_loader = get_dataloader(root=self.data_dir, split='Test', batch_size=args.batch_size, num_workers=args.workers)
+        self.model = DGCNN_FoldNet(args)
+
+        # load model to gpu
+        if self.gpu_mode:
+            self.model = self.model.cuda()
+
+        #load pretrained model
+        if args.pretrain != '':
+            self._load_pretrain(args.pretrain)
+
+        # initialize optimizer
+        self.parameter = self.model.parameters()
+        self.optimizer = optim.Adam(self.parameter, lr=0.00001*16/args.batch_size, betas=(0.9, 0.999), weight_decay=1e-6)
 
 
+    def train(self):
+        

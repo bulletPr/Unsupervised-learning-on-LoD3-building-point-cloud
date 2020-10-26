@@ -39,7 +39,7 @@ class ArchDataset(Dataset):
         self.random_jitter = random_jitter
         self.random_rotate = random_rotate
         self.cat2id = {}
-        self.root = os.path.join(root, split)
+        self.root = os.path.join(root, dataset_name, split)
 
         #parse category file
         with open('synsetoffset2category.txt','r') as f:
