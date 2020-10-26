@@ -56,7 +56,7 @@ batch_label_dim = [H5_BATCH_SIZE] + label_dim #[1000, 2048]
 h5_batch_data = np.zeros(batch_data_dim, dtype = np.float32) #(1000, 2048, 9)
 h5_batch_label = np.zeros(batch_label_dim, dtype = np.uint8) #(1000, 2048)
 buffer_size = 0  # state: record how many samples are currently in buffer
-h5_index = 0 # state: the next h5 file to save
+h5_index = 2 # state: the next h5 file to save
 
 def insert_batch(data, label, last_batch=False):
     global h5_batch_data, h5_batch_label
