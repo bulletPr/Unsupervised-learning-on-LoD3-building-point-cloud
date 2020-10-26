@@ -42,7 +42,6 @@ class Inference(object):
     def __init__(self, args):
         self.batch_size = args.batch_size
         self.gpu_mode = args.gpu_mode
-        self.task = args.task
         self.dataset_name = args.dataset
         self.data_dir = os.path.join(ROOT_DIR, 'data', self.dataset_name)
 

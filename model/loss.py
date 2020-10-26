@@ -69,7 +69,7 @@ class CrossEntropyLoss(nn.Module):
     def __init__(self, smoothing=True):
         super(CrossEntropyLoss, self).__init__()
         self.smoothing = smoothing
-    
+
     def forward(self, preds, gts):
         gts = gts.contiguous().view(-1)
 
