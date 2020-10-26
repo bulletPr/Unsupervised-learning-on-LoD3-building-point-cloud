@@ -53,10 +53,10 @@ def knn(x, k):
 
     return idx
 
+
 # ----------------------------------------
 # Local Convolution
 # ----------------------------------------
-
 
 def local_cov(pts, idx):
     batch_size = pts.size(0)
@@ -122,7 +122,7 @@ def get_graph_feature(x, k=20, idx=None):
 
 
 # ----------------------------------------
-# Encoder
+# FoldingNet_Encoder
 # ----------------------------------------
 
 class FoldNet_Encoder(nn.Module):
@@ -174,6 +174,11 @@ class FoldNet_Encoder(nn.Module):
         feat = x.transpose(2,1)              #(batch_size,1,feat_dims)
         return feat
 
+
+# ----------------------------------------
+# FoldingNet_Decoder
+# ----------------------------------------
+
 class FoldNet_Decoder(nn.Module):
     def __init__(self, args):
         super(FoldNet_Decoder, self).__init__()
@@ -217,6 +222,10 @@ class FoldNet_Decoder(nn.Module):
         after_fold2 = self.fold2(concate2) #(bs, 3, num_points)
         return after_fold2.transpose(1,2)
 
+
+# ----------------------------------------
+# DGCNN_CLASSIFICATION_Encoder
+# ----------------------------------------
 
 class DGCNN_Cls_Encoder(nn.Module):
     def __init__(self, args):
@@ -281,6 +290,10 @@ class DGCNN_Cls_Encoder(nn.Module):
             return feat                         # (batch_size, 1, feat_dims)
 
 
+# ----------------------------------------
+# Point_transform_mini_network
+# ----------------------------------------
+
 class Point_Transform_Net(nn.Module):
     def __init__(self):
         super(Point_Transform_Net, self).__init__()
@@ -328,6 +341,10 @@ class Point_Transform_Net(nn.Module):
         return x                                # (batch_size, 3, 3)
 
 
+# ----------------------------------------
+# DGCNN_SEGMENTATION_ENCODER
+# ----------------------------------------
+
 class DGCNN_Seg_Encoder(nn.Module):
     def __init__(self, args):
         super(DGCNN_Seg_Encoder, self).__init__()
@@ -362,7 +379,6 @@ class DGCNN_Seg_Encoder(nn.Module):
         self.conv6 = nn.Sequential(nn.Conv1d(192, args.feat_dims, kernel_size=1, bias=False),
                                    self.bn6,
                                    nn.LeakyReLU(negative_slope=0.2))
-
 
     def forward(self, x):
         x = x.transpose(2, 1)
@@ -400,6 +416,10 @@ class DGCNN_Seg_Encoder(nn.Module):
         return feat                             # (batch_size, 1, emb_dims)
 
 
+# ----------------------------------------
+# DGCNN_CLASSIFICATION_Classifier_Net
+# ----------------------------------------
+
 class DGCNN_Cls_Classifier(nn.Module):
     def __init__(self, args):
         super(DGCNN_Cls_Classifier, self).__init__()
@@ -435,6 +455,9 @@ class DGCNN_Cls_Classifier(nn.Module):
         return x
 
 
+# ----------------------------------------
+# Reconstrucion Network
+# ----------------------------------------
 
 class DGCNN_FoldNet(nn.Module):
     def __init__(self, num_points):
@@ -461,6 +484,10 @@ class DGCNN_FoldNet(nn.Module):
         #output (bs, 2025,3)
         return self.loss(input, output)
 
+
+# ----------------------------------------
+# Classification Network
+# ----------------------------------------
 
 class ClassificationNet(nn.Module):
     def __init__(self, args):
