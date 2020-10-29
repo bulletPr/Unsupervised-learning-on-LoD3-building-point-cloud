@@ -1,2 +1,0 @@
-input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/8_SMV_chapel_28.txt and shape: (3156753, 7)
-block number: 141, 4215

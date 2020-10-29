@@ -21,56 +21,55 @@ import os.path
 import glob
 import torch
 import sys
+from datetime import datetime
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import translate_pointcloud, jitter_pointcloud, rotate_pointcloud
-from pc_utils import load_txt
+from pc_utils import is_h5_list, load_seg_list, load_seg
 import common
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
 
 #ArCH dataset load
 class ArchDataset(Dataset):
-    def __init__(self, root, num_points=2048, random_translate=False, random_rotate=False,
-            random_jitter=False, split='Train'):
+    def __init__(self, root, dataset_name, num_points=2048, random_translate=False, random_rotate=False,
+            random_jitter=False, split='train'):
         self.random_translate = random_translate
         self.random_jitter = random_jitter
         self.random_rotate = random_rotate
-        self.cat2id = {}
-        self.root = os.path.join(root, dataset_name, split)
+        self.root = os.path.join(root, dataset_name)
+        self.path_txt_all = None
+        #define all train/test file
+        #self.path_txt_all = []
 
-        #parse category file
-        with open('synsetoffset2category.txt','r') as f:
-            for line in f:
-                ls = line.strip().split()
-                self.cat2id[ls[0]] = ls[1]
-        self.classes = dict(zip(sorted(self.cat2id), range(len(self.cat2id))))
-        f.close()
-        log_string("classes:" + str(self.classes))
-
-        #acquire all train/test file
-        self.path_txt_all = []
-        self.path_txt_all = os.listdir(self.root)
+        # acquire split file dir
+        if split == 'train':
+            self.filelist = os.path.join(self.root, 'train_data_files_1.txt') 
+            # Read filelist
+            print('{}-Preparing datasets...'.format(datetime.now()))
+            is_list_of_h5_list = not is_h5_list(self.filelist)
+            if is_list_of_h5_list:
+                seg_list = load_seg_list(self.filelist)
+                print("segmentation files:" + str(len(seg_list)))
+                seg_list_idx = 0
+                self.path_txt_all = seg_list[seg_list_idx]
+                seg_list_idx = seg_list_idx + 1
+            else:
+                self.path_txt_all = self.filelist
+        else:
+            self.path_txt_all = os.path.join(self.root, 'test_data_files.txt')
 
         log_string("check paths:" + str(self.path_txt_all))
+        log_string("Read datasets by load .h5 files")
+        self.data, _, self.data_num, self.labels, _ = load_seg(self.path_txt_all)
+        log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.data_num.shape) + "," + str(self.labels.shape) + "]")
 
-        #save data path
-        self.path_txt_all.sort()
-        log_string("check sorted paths:" + str(self.root) + str(self.path_txt_all))
-
-        data, label = load_txt(self.root, self.path_txt_all)
-        log_string("shape of data: " + str(len(data)))
-        log_string("shape of label: " + str(len(label)))
-
-        self.data = np.concatenate(data, axis=0)
-        self.label = np.concatenate(label, axis=0)
-        log_string("shape after concatenate: " + str(self.data.shape))
 
     def __getitem__(self, index):
         point_set = self.data[index]
-        label = self.label[index]
+        label = self.labels[index]
         # data augument
         if self.random_translate:
             point_set = translate_pointcloud(point_set[:,0:3])
@@ -85,11 +84,12 @@ class ArchDataset(Dataset):
         label = torch.from_numpy(np.array([label]).astype(np.int8))
         label = label.squeeze(0)
         log_string("read point_set: [" + str(index) + "]")
+        log_string("point_set size: [" + str(point_set.shape) + "," + str(label.shape) + "]")
         return point_set, label
 
 
     def __len__(self):
-        return self.data.shape[0]
+        return len(self.path_txt_all)
 
 
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'w')
@@ -100,13 +100,12 @@ def log_string(out_str):
 
 
 if __name__ == '__main__':
-    datasetname = "arch_hdf5_data"
-    datapath = os.path.join(DATA_DIR, datasetname)
+    datasetname = "arch"
     split = 'train'
 
     if datasetname == 'arch':
         print("Segmentation task:")
-        d = ArchDataset(datapath, num_points=2048, split=split, random_translate=False, random_rotate=False)
+        d = ArchDataset(root=DATA_DIR, dataset_name = datasetname, split=split, random_translate=False, random_rotate=False)
         print("datasize:", d.__len__())
         ps, label = d[0]
         print(ps.size(), ps.type(), label.size(), label.type())
