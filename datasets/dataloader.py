@@ -24,12 +24,13 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
-def get_dataloader(root, dataset_name, split='train', batch_size=32,  
-        num_points=2048, num_workers=4, shuffle=True):
+sys.path.append(os.path.join(ROOT_DIR, 'utils'))
+from pc_utils import is_h5_list, load_seg_list
+
+def get_dataloader(filelist, batch_size=32,  
+        num_points=2048, num_workers=4, shuffle=False):
     dataset = ArchDataset(
-            root=root,
-            dataset_name = dataset_name,
-            split=split,
+            filelist=filelist,
             num_points=num_points)
     dataloader = torch.utils.data.DataLoader(
             dataset,
@@ -40,7 +41,19 @@ def get_dataloader(root, dataset_name, split='train', batch_size=32,
     return dataloader
 
 if __name__ == '__main__':
-    dataloader = get_dataloader(root = DATA_DIR, dataset_name='arch', batch_size=4, num_points=2048)
+    filelist = os.path.join(DATA_DIR, 'arch', 'train_data_files.txt') 
+    # Read filelist
+    print('-Preparing datasets...')
+    is_list_of_h5_list = not is_h5_list(filelist)
+    if is_list_of_h5_list:
+        seg_list = load_seg_list(filelist)
+        print("segmentation files:" + str(len(seg_list)))
+        seg_list_idx = 0
+        filepath = seg_list[seg_list_idx]
+        seg_list_idx = seg_list_idx + 1
+    else:
+        filepath = filelist
+    dataloader = get_dataloader(filelist=filepath, batch_size=4, num_points=2048)
     print("dataloader size: ", dataloader.dataset.__len__())
     for iter, (pts,seg) in enumerate(dataloader):
         print("points: ", pts.shape, pts.type)

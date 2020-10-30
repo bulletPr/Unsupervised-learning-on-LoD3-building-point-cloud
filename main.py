@@ -24,8 +24,8 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'model'))
 
-from train import Inference
-from trainer_recontruction import Reconstruct_Trainer
+from evaluation import Inference
+from trainer import Trainer
 from svm import SVM
 
 def get_parser():
@@ -72,7 +72,7 @@ def get_parser():
 if __name__ == '__main__':
     args = get_parser()
     if args.eval == False:
-        reconstruction = Reconstruction_Trainer(args)
+        reconstruction = Trainer(args)
         reconstruction.train()
     else:
         inference = Inference(args)

@@ -18,7 +18,6 @@ from torch.utils.data.dataset import Dataset
 import os
 import numpy as np
 import os.path
-import glob
 import torch
 import sys
 from datetime import datetime
@@ -27,49 +26,34 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import translate_pointcloud, jitter_pointcloud, rotate_pointcloud
-from pc_utils import is_h5_list, load_seg_list, load_seg
-import common
+from pc_utils import load_seg
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
 
 #ArCH dataset load
 class ArchDataset(Dataset):
-    def __init__(self, root, dataset_name, num_points=2048, random_translate=False, random_rotate=False,
-            random_jitter=False, split='train'):
+    def __init__(self, filelist, num_points=2048, random_translate=False, random_rotate=False,
+            random_jitter=False):
         self.random_translate = random_translate
         self.random_jitter = random_jitter
         self.random_rotate = random_rotate
-        self.root = os.path.join(root, dataset_name)
-        self.path_txt_all = None
+        
         #define all train/test file
-        #self.path_txt_all = []
+        self.path_h5py_all = filelist
 
         # acquire split file dir
-        if split == 'train':
-            self.filelist = os.path.join(self.root, 'train_data_files_1.txt') 
-            # Read filelist
-            print('{}-Preparing datasets...'.format(datetime.now()))
-            is_list_of_h5_list = not is_h5_list(self.filelist)
-            if is_list_of_h5_list:
-                seg_list = load_seg_list(self.filelist)
-                print("segmentation files:" + str(len(seg_list)))
-                seg_list_idx = 0
-                self.path_txt_all = seg_list[seg_list_idx]
-                seg_list_idx = seg_list_idx + 1
-            else:
-                self.path_txt_all = self.filelist
-        else:
-            self.path_txt_all = os.path.join(self.root, 'test_data_files.txt')
-
-        log_string("check paths:" + str(self.path_txt_all))
+        log_string("check paths length:" + str(self.path_h5py_all))
+        
         log_string("Read datasets by load .h5 files")
-        self.data, _, self.data_num, self.labels, _ = load_seg(self.path_txt_all)
-        log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.data_num.shape) + "," + str(self.labels.shape) + "]")
+        self.data, _, self.num_points, self.labels, _ = load_seg(self.path_h5py_all)
+        log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.labels.shape) + "]")
 
 
     def __getitem__(self, index):
+        
         point_set = self.data[index]
         label = self.labels[index]
+
         # data augument
         if self.random_translate:
             point_set = translate_pointcloud(point_set[:,0:3])
@@ -89,7 +73,7 @@ class ArchDataset(Dataset):
 
 
     def __len__(self):
-        return len(self.path_txt_all)
+        return self.data.shape[0]
 
 
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'w')
@@ -99,13 +83,20 @@ def log_string(out_str):
     print(out_str)
 
 
-if __name__ == '__main__':
-    datasetname = "arch"
-    split = 'train'
-
-    if datasetname == 'arch':
-        print("Segmentation task:")
-        d = ArchDataset(root=DATA_DIR, dataset_name = datasetname, split=split, random_translate=False, random_rotate=False)
-        print("datasize:", d.__len__())
-        ps, label = d[0]
-        print(ps.size(), ps.type(), label.size(), label.type())
+    '''
+        if split == 'train':
+            self.filelist = os.path.join(self.root, 'train_data_files.txt') 
+            # Read filelist
+            print('{}-Preparing datasets...'.format(datetime.now()))
+            is_list_of_h5_list = not is_h5_list(self.filelist)
+            if is_list_of_h5_list:
+                seg_list = load_seg_list(self.filelist)
+                print("segmentation files:" + str(len(seg_list)))
+                seg_list_idx = 0
+                self.path_txt_all = seg_list[seg_list_idx]
+                seg_list_idx = seg_list_idx + 1
+            else:
+                self.path_txt_all = self.filelist
+        else:
+            self.path_txt_all = os.path.join(self.root, 'test_data_files.txt')
+    '''
