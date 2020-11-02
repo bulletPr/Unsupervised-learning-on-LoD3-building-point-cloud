@@ -8,7 +8,7 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Implements
+#      Implements: Trainer  __init__(), train()
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
@@ -28,25 +28,35 @@ import shutil
 
 from tensorboardX import SummaryWriter
 from model import DGCNN_FoldNet
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(BASE_DIR)
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_DIR)
+
 sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
 from ArCH import ArchDataset
 from dataloader import get_dataloader
+
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
+from pc_utils import is_h5_list, load_seg_list
 from net_utils import Logger
 
+DATA_DIR = os.path.join(ROOT_DIR, 'data')
+
+
+# ----------------------------------------
+# Trainer class
+# ----------------------------------------
 
 class Trainer(object):
     def __init__(self, args):
         self.dataset_name = args.dataset
         self.epochs = args.epochs
         self.batch_size = args.batch_size
-        self.data_dir = os.path.join(ROOT_DIR, 'data')
+        #self.data_dir = os.path.join(ROOT_DIR, 'data')
         self.snapshot_interval = args.snapshot_interval
         self.gpu_mode = args.gpu_mode
         self.model_path = args.model_path
+        self.split = args.split
 
         # create output directory and files
         file = [f for f in args.model_path.split('/')]
@@ -56,9 +66,9 @@ class Trainer(object):
             self.experiment_id = file[-3]
         else:
             self.experiment_id = "Reconstruct" + time.strftime('%m%d%H%M%S')
-        snapshor_root = 'snapshort/%s' %self.experiment_id
+        snapshot_root = 'snapshort/%s' %self.experiment_id
         tensorboard_root = 'tensorboard/%s' %self.experiment_id
-        self.save_dir = os.path.join(snapshor_root, 'models/')
+        self.save_dir = os.path.join(snapshot_root, 'models/')
         self.tboard_dir = tensorboard_root
 
         #chenck arguments
@@ -77,15 +87,34 @@ class Trainer(object):
             else:
                 shutil.rmtree(self.tboard_dir)
                 os.makedirs(self.tboard_dir)
-        sys.stdout = Logger(os.path.join(snapshor_root, 'network_log.txt'))
+        sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'network_log.txt'))
         self.write = SummaryWriter(log_dir = self.tboard_dir)
         print(str(args))
-
-        # load dataset by dataloader
-        self.train_loader = get_dataloader(root=self.data_dir, dataset_name = self.dataset_name, split='train', batch_size=args.batch_size, num_workers=args.workers)
-        print("training set size: ", self.train_loader.dataset.__len__())
         
-        self.test_loader = get_dataloader(root=self.data_dir, dataset_name = self.dataset_name, split='test', batch_size=args.batch_size, num_workers=args.workers)
+        # initial dataset filelist
+        print('-Preparing dataset file list...')
+        if self.split == 'train'
+            self.filelist = os.path.join(DATA_DIR, self.dataset_name, "train_data_files.txt")
+        else:
+            self.filelist = os.path.join(DATA_DIR, self.dataset_name, "test_data_files.txt")
+        is_list_of_h5_list = not is_h5_list(self.filelist)
+        if is_list_of_h5_list:
+            seg_list = load_seg_list(filelist)
+            print("segmentation files:" + str(len(seg_list)))
+            seg_list_idx = 0
+            filepath = seg_list[seg_list_idx]
+            seg_list_idx = seg_list_idx + 1
+        else:
+            filepath = filelist
+        
+        # initial dataset by dataloader
+        print('-Preparing dataset...')
+        self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True)
+        num_train = len(self.train_loader.dataset)
+        print("training set size: ", self.train_loader.dataset.__len__())
+        print("validate set size: " + num_train)
+        
+        self.test_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers)
         print("testing set size: ", self.test_loader.dataset.__len__())
 
         self.model = DGCNN_FoldNet(args)
@@ -154,11 +183,24 @@ class Trainer(object):
     def train_epoch(self, epoch):
         epoch_start_time = time.time()
         loss_buf = []
-        num_batch int(len(self.train_loader.dataset)/self.batch_size)
+        num_batch = int(num_train/self.batch_size)
         for iter, (pts, _) in enumerate(self.train_loader):
             if self.gpu_mode:
                 pts = pts.cuda()
-
+            
+            start_idx = (batch_size * iter) % num_train
+            end_idx = min(start_idx + batch_size, num_train)
+            batch_size_train = end_idx - start_idx
+            
+            if start_idx + batch_size_train == num_train:
+                if is_list_of_h5_list:
+                    filelist_train_prev = seg_list[(seg_list_idx - 1) % len(seg_list)]
+                    filelist_train = seg_list[seg_list_idx % len(seg_list)]
+                    if filelist_train != filelist_train_prev:
+                        self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, )
+                        num_train = len(self.train_loader.dataset)
+                    seg_list_idx = seg_list_idx + 1
+            
             # forward
             self.optimizer.zero_grad()
             output, _ = self.model(pts)

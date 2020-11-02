@@ -36,7 +36,7 @@ import data_utils
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', '-f', help='Path to data folder')
-    parser.add_argument('--max_point_num', '-m', help='Max point number of each sample', type=int, default=2048)
+    parser.add_argument('--max_point_num', '-m', help='Max point number of each sample', type=int, default=8192)
     parser.add_argument('--block_size', '-b', help='Block size', type=float, default=1.5)
     parser.add_argument('--grid_size', '-g', help='Grid size', type=float, default=0.03)
     parser.add_argument('--save_ply', '-s', help='Convert .pts to .ply', action='store_true')
@@ -57,7 +57,7 @@ def main():
     if args.save_ply:
         data_center = np.zeros((batch_size, max_point_num, 3))
     datasets=[]
-    folders = [os.path.join(root, folder) for folder in ['test', 'train']]
+    folders = [os.path.join(root, folder) for folder in ['test1', 'train']]
     for folder in folders:
         datasets = os.listdir(folder)
         for dataset_idx, dataset in enumerate(datasets):

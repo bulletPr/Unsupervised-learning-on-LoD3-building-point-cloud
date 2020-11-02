@@ -28,10 +28,11 @@ sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import is_h5_list, load_seg_list
 
 def get_dataloader(filelist, batch_size=32,  
-        num_points=2048, num_workers=4, shuffle=False):
+        num_points=2048, num_workers=4, group_shuffle=False, shuffle=False):
     dataset = ArchDataset(
             filelist=filelist,
-            num_points=num_points)
+            num_points=num_points,
+            group_shuffle=group_shuffle)
     dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,
@@ -41,7 +42,7 @@ def get_dataloader(filelist, batch_size=32,
     return dataloader
 
 if __name__ == '__main__':
-    filelist = os.path.join(DATA_DIR, 'arch', 'train_data_files.txt') 
+    filelist = os.path.join(DATA_DIR, 'arch', 'train_data_files_1.txt') 
     # Read filelist
     print('-Preparing datasets...')
     is_list_of_h5_list = not is_h5_list(filelist)
@@ -53,7 +54,7 @@ if __name__ == '__main__':
         seg_list_idx = seg_list_idx + 1
     else:
         filepath = filelist
-    dataloader = get_dataloader(filelist=filepath, batch_size=4, num_points=2048)
+    dataloader = get_dataloader(filelist=filepath, batch_size=4, num_points=2048,group_shuffle=True)
     print("dataloader size: ", dataloader.dataset.__len__())
     for iter, (pts,seg) in enumerate(dataloader):
         print("points: ", pts.shape, pts.type)
