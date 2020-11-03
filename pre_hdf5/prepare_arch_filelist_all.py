@@ -61,7 +61,7 @@ def main():
             filelist.write(filename_h5)
     '''
     test_h5 = split_filelists['test']
-    test_list = os.path.join(root, 'test_data_files.txt')
+    test_list = os.path.join(root, 'test_data_files_1.txt')
     print('{}-Saving {}...'.format(datetime.now(), test_list))
     with open(test_list, 'w') as filelist:
         for filename_h5 in test_h5:

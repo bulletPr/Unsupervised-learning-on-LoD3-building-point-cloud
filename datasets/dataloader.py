@@ -42,7 +42,7 @@ def get_dataloader(filelist, batch_size=32,
     return dataloader
 
 if __name__ == '__main__':
-    filelist = os.path.join(DATA_DIR, 'arch', 'train_data_files_1.txt') 
+    filelist = os.path.join(DATA_DIR, 'arch', 'train_data_files.txt') 
     # Read filelist
     print('-Preparing datasets...')
     is_list_of_h5_list = not is_h5_list(filelist)

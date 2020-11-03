@@ -148,9 +148,9 @@ def load_h5_data_label_seg(h5_filename):
 
 # Read numpy array data and label from h5_filename
 def load_h5(h5_filename):
-    f = h5py.File(h5_filename)
-    data = f['data'][:]
-    label = f['label_seg'][:]
+    f = h5py.File(h5_filename, 'r')
+    data = f['data'][...].astype(np.float32)
+    label = f['label_seg'][...].astype(np.int64)
     return (data, label)
 
 def load_cls(filelist):
@@ -194,6 +194,7 @@ def load_seg(filelist):
 
     folder = os.path.dirname(filelist)
     for line in open(filelist):
+        print("Load file: " + str(line))
         data = h5py.File(os.path.join(folder, line.strip()), 'r')
         points.append(data['data'][...].astype(np.float32))
         labels.append(data['label'][...].astype(np.int64))
