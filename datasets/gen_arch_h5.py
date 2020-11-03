@@ -18,17 +18,17 @@
 import os
 import numpy as np
 import sys
+import random
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
-import common
 import pc_utils
 
 # Constants
 data_dir = os.path.join(ROOT_DIR, 'data')
-arch_data_dir = os.path.join(data_dir, 'arch', 'Train1')
-NUM_POINT = 2048
+arch_data_dir = os.path.join(data_dir, 'arch', 'train')
+NUM_POINT = 8192
 H5_BATCH_SIZE = 1000
 data_dim = [NUM_POINT, 6]
 label_dim = [NUM_POINT]
@@ -39,12 +39,10 @@ path_txt_all = []
 path_txt_all = os.listdir(arch_data_dir)
 
 
-output_dir = os.path.join(data_dir, 'arch_hdf5_data', 'train')
+output_dir = os.path.join(data_dir, 'arch_hdf5_data', 'train1')
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
-output_filename_prefix = os.path.join(output_dir, 'ply_data_all')
-output_building_filelist = os.path.join(output_dir, '../building_filelist.txt')
-fout_building = open(output_building_filelist, 'w')
+output_filename_prefix = os.path.join(output_dir, 'h5_data_all')
 
 
 # --------------------------------------
@@ -56,7 +54,7 @@ batch_label_dim = [H5_BATCH_SIZE] + label_dim #[1000, 2048]
 h5_batch_data = np.zeros(batch_data_dim, dtype = np.float32) #(1000, 2048, 9)
 h5_batch_label = np.zeros(batch_label_dim, dtype = np.uint8) #(1000, 2048)
 buffer_size = 0  # state: record how many samples are currently in buffer
-h5_index = 2 # state: the next h5 file to save
+h5_index = 0 # state: the next h5 file to save
 
 def insert_batch(data, label, last_batch=False):
     global h5_batch_data, h5_batch_label
@@ -99,22 +97,31 @@ def log_string(out_str):
     LOG_FOUT.flush()
     print(out_str)
 
+if __name__ == '__main__':
+    sample_cnt = 0
+    root = '../data/arch/'
+    splits = ['train', 'test']
+    split_filelists = dict()
+    for split in splits:
+        split_filelists[split] = ['%s/%s\n' % (split, filename) for filename in os.listdir(os.path.join(root, split))
+                                  if filename.endswith('.h5')]
+    train_h5 = split_filelists['train']
+    random.shuffle(train_h5)
+    
+    sampling_strategy = 'random'
+    
+    for i in range(len(train_h5)):
+        filepath = os.path.join(root, train_h5[i].strip())
+        log_string("input file: " + filepath)
+        data, labels = pc_utils.load_h5(filepath)
+        print('{0}, {1}'.format(data.shape, labels.shape))
+        log_string("output file size: " + str(data.shape) + ', ' + str(labels.shape))
+        
+        log_string("Sampling data now")
 
-sample_cnt = 0
-for i, data_label_filename in enumerate(path_txt_all):
-    data_label_filename = os.path.join(arch_data_dir, data_label_filename)
-    log_string("input file: " + data_label_filename)
-    data, label = common.scenetoblocks_wrapper(data_label_filename, NUM_POINT, block_size=1.0,
-            stride=1.0)
-    print('{0}, {1}'.format(data.shape, label.shape))
-    log_string("output file size: " + str(data.shape) + ', ' + str(label.shape))
-    for _ in range(data.shape[0]):
-        fout_building.write(os.path.basename(data_label_filename)[0:-4]+'\n')
+        sample_cnt += data.shape[0]
+        log_string("sample number now: {0}".format(sample_cnt)+"now insert_batch")
+        insert_batch(data, labels, i == len(path_txt_all)-1)
+        log_string("finish {0} times".format(i))
 
-    sample_cnt += data.shape[0]
-    log_string("sample number now: {0}".format(sample_cnt)+"now insert_batch")
-    insert_batch(data, label, i == len(path_txt_all)-1)
-    log_string("finish {0} times".format(i))
-
-fout_building.close()
-print("Total samples: {0}".format(sample_cnt))
+    print("Total samples: {0}".format(sample_cnt))

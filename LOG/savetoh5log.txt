@@ -1,1 +1,192 @@
-input file: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/Train1/8_SMV_chapel_28.txt
+input file: ../data/arch/train/3_VAL_room.txt_2048_zero_0.h5
+output file size: (640, 8192, 6), (640, 8192)
+Sampling data now
+sample number now: 640now insert_batch
+now in enough space location, store data in memory
+finish 0 times
+input file: ../data/arch/train/12_KAS_pavillion_1.txt_2048_zero_0.h5
+output file size: (95, 8192, 6), (95, 8192)
+Sampling data now
+sample number now: 735now insert_batch
+now in enough space location, store data in memory
+finish 1 times
+input file: ../data/arch/train/2_TR_church.txt_2048_half_1.h5
+output file size: (1133, 8192, 6), (1133, 8192)
+Sampling data now
+sample number now: 1868now insert_batch
+now insert rest data to h5 batch again(868, 8192, 6)
+now in enough space location, store data in memory
+finish 2 times
+input file: ../data/arch/train/12_KAS_pavillion_1.txt_2048_half_0.h5
+output file size: (96, 8192, 6), (96, 8192)
+Sampling data now
+sample number now: 1964now insert_batch
+now in enough space location, store data in memory
+finish 3 times
+input file: ../data/arch/train/7_SMV_chapel_24.txt_2048_zero_0.h5
+output file size: (553, 8192, 6), (553, 8192)
+Sampling data now
+sample number now: 2517now insert_batch
+now insert rest data to h5 batch again(517, 8192, 6)
+now in enough space location, store data in memory
+finish 4 times
+input file: ../data/arch/train/9_SMV_chapel_10.txt_2048_zero_0.h5
+output file size: (330, 8192, 6), (330, 8192)
+Sampling data now
+sample number now: 2847now insert_batch
+now in enough space location, store data in memory
+finish 5 times
+input file: ../data/arch/train/8_SMV_chapel_28.txt_2048_zero_0.h5
+output file size: (494, 8192, 6), (494, 8192)
+Sampling data now
+sample number now: 3341now insert_batch
+now insert rest data to h5 batch again(341, 8192, 6)
+now in enough space location, store data in memory
+finish 6 times
+input file: ../data/arch/train/10_SStefano_portico_1.txt_2048_zero_0.h5
+output file size: (569, 8192, 6), (569, 8192)
+Sampling data now
+sample number now: 3910now insert_batch
+now in enough space location, store data in memory
+finish 7 times
+input file: ../data/arch/train/4_CA_church.txt_2048_half_0.h5
+output file size: (762, 8192, 6), (762, 8192)
+Sampling data now
+sample number now: 4672now insert_batch
+now insert rest data to h5 batch again(672, 8192, 6)
+now in enough space location, store data in memory
+finish 8 times
+input file: ../data/arch/train/6_SMV_chapel_2to4.txt_2048_half_0.h5
+output file size: (1032, 8192, 6), (1032, 8192)
+Sampling data now
+sample number now: 5704now insert_batch
+now insert rest data to h5 batch again(704, 8192, 6)
+now in enough space location, store data in memory
+finish 9 times
+input file: ../data/arch/train/3_VAL_room.txt_2048_half_0.h5
+output file size: (652, 8192, 6), (652, 8192)
+Sampling data now
+sample number now: 6356now insert_batch
+now insert rest data to h5 batch again(356, 8192, 6)
+now in enough space location, store data in memory
+finish 10 times
+input file: ../data/arch/train/6_SMV_chapel_2to4.txt_2048_zero_0.h5
+output file size: (1032, 8192, 6), (1032, 8192)
+Sampling data now
+sample number now: 7388now insert_batch
+now insert rest data to h5 batch again(388, 8192, 6)
+now in enough space location, store data in memory
+finish 11 times
+input file: ../data/arch/train/4_CA_church.txt_2048_zero_0.h5
+output file size: (760, 8192, 6), (760, 8192)
+Sampling data now
+sample number now: 8148now insert_batch
+now insert rest data to h5 batch again(148, 8192, 6)
+now in enough space location, store data in memory
+finish 12 times
+input file: ../data/arch/train/11_SStefano_portico_2.txt_2048_zero_0.h5
+output file size: (1542, 8192, 6), (1542, 8192)
+Sampling data now
+sample number now: 9690now insert_batch
+now insert rest data to h5 batch again(690, 8192, 6)
+now in enough space location, store data in memory
+finish 13 times
+input file: ../data/arch/train/15_OTT_church.txt_2048_half_0.h5
+output file size: (1854, 8192, 6), (1854, 8192)
+Sampling data now
+sample number now: 11544now insert_batch
+now insert rest data to h5 batch again(1544, 8192, 6)
+now insert rest data to h5 batch again(544, 8192, 6)
+now in enough space location, store data in memory
+finish 14 times
+input file: ../data/arch/train/14_TRE_square.txt_2048_half_0.h5
+output file size: (1407, 8192, 6), (1407, 8192)
+Sampling data now
+sample number now: 12951now insert_batch
+now insert rest data to h5 batch again(951, 8192, 6)
+now in enough space location, store data in memory
+finish 15 times
+input file: ../data/arch/train/11_SStefano_portico_2.txt_2048_half_0.h5
+output file size: (1524, 8192, 6), (1524, 8192)
+Sampling data now
+sample number now: 14475now insert_batch
+now insert rest data to h5 batch again(1475, 8192, 6)
+now insert rest data to h5 batch again(475, 8192, 6)
+now in enough space location, store data in memory
+finish 16 times
+input file: ../data/arch/train/14_TRE_square.txt_2048_zero_0.h5
+output file size: (1405, 8192, 6), (1405, 8192)
+Sampling data now
+sample number now: 15880now insert_batch
+now insert rest data to h5 batch again(880, 8192, 6)
+now in enough space location, store data in memory
+finish 17 times
+input file: ../data/arch/train/5_SMV_chapel_1.txt_2048_zero_0.h5
+output file size: (570, 8192, 6), (570, 8192)
+Sampling data now
+sample number now: 16450now insert_batch
+now insert rest data to h5 batch again(450, 8192, 6)
+now in enough space location, store data in memory
+finish 18 times
+input file: ../data/arch/train/7_SMV_chapel_24.txt_2048_half_0.h5
+output file size: (565, 8192, 6), (565, 8192)
+Sampling data now
+sample number now: 17015now insert_batch
+now insert rest data to h5 batch again(15, 8192, 6)
+now in enough space location, store data in memory
+finish 19 times
+input file: ../data/arch/train/10_SStefano_portico_1.txt_2048_half_0.h5
+output file size: (563, 8192, 6), (563, 8192)
+Sampling data now
+sample number now: 17578now insert_batch
+now in enough space location, store data in memory
+finish 20 times
+input file: ../data/arch/train/13_KAS_pavillion_2.txt_2048_half_0.h5
+output file size: (57, 8192, 6), (57, 8192)
+Sampling data now
+sample number now: 17635now insert_batch
+now in enough space location, store data in memory
+finish 21 times
+input file: ../data/arch/train/9_SMV_chapel_10.txt_2048_half_0.h5
+output file size: (335, 8192, 6), (335, 8192)
+Sampling data now
+sample number now: 17970now insert_batch
+now in enough space location, store data in memory
+finish 22 times
+input file: ../data/arch/train/2_TR_church.txt_2048_zero_0.h5
+output file size: (2048, 8192, 6), (2048, 8192)
+Sampling data now
+sample number now: 20018now insert_batch
+now insert rest data to h5 batch again(2018, 8192, 6)
+now insert rest data to h5 batch again(1018, 8192, 6)
+now insert rest data to h5 batch again(18, 8192, 6)
+now in enough space location, store data in memory
+finish 23 times
+input file: ../data/arch/train/1_TR_cloister.txt_2048_zero_1.h5
+output file size: (378, 8192, 6), (378, 8192)
+Sampling data now
+sample number now: 20396now insert_batch
+now in enough space location, store data in memory
+finish 24 times
+input file: ../data/arch/train/1_TR_cloister.txt_2048_half_1.h5
+output file size: (369, 8192, 6), (369, 8192)
+Sampling data now
+sample number now: 20765now insert_batch
+now in enough space location, store data in memory
+finish 25 times
+input file: ../data/arch/train/2_TR_church.txt_2048_zero_1.h5
+output file size: (1140, 8192, 6), (1140, 8192)
+Sampling data now
+sample number now: 21905now insert_batch
+now insert rest data to h5 batch again(905, 8192, 6)
+now in enough space location, store data in memory
+finish 26 times
+input file: ../data/arch/train/1_TR_cloister.txt_2048_zero_0.h5
+output file size: (2048, 8192, 6), (2048, 8192)
+Sampling data now
+sample number now: 23953now insert_batch
+now insert rest data to h5 batch again(1953, 8192, 6)
+now insert rest data to h5 batch again(953, 8192, 6)
+now in enough space location, store data in memory
+finish 27 times
+input file: ../data/arch/train/15_OTT_church.txt_2048_zero_0.h5

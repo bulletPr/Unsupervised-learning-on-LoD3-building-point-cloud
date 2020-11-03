@@ -53,20 +53,18 @@ class ArchDataset(Dataset):
         # acquire split file dir
         log_string("check paths length:" + str(self.path_h5py_all))
         
-        log_string("Read datasets by load .h5 files")
+        log_string("Read datasets by load .h5 files, filelist: " + str(filelist))
+        self.path_h5py_all = filelist
         
-        self.path_h5py_all = [line.strip()[-3:] == '.h5' for line in open(filelist)]
-        '''
         self.data, _, self.num_points, self.labels, _ = load_seg(self.path_h5py_all)
         if self.shuffle:
             self.data, self.num_points, self.labels = grouped_shuffle([self.data, self.num_points, self.labels])
         log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.labels.shape) + "]")
-        '''
+        
 
     def __getitem__(self, index):
-        point_set,label = load_h5(self.path_h5py_all[index])
-        #point_set = self.data[index]
-        #label = self.labels[index]
+        point_set = self.data[index]
+        label = self.labels[index]
 
         # data augument
         if self.random_translate:
@@ -76,7 +74,6 @@ class ArchDataset(Dataset):
         if self.random_rotate:
             point_set = rotate_pointcloud(point_set[:,0:3])
             
-
         #conver numpy array to pytorch Tensor
         point_set = torch.from_numpy(point_set)
         #colors = torch.from_numpy()
@@ -88,8 +85,7 @@ class ArchDataset(Dataset):
 
 
     def __len__(self):
-        #return self.data.shape[0]
-        return len(self.path_h5py_all)
+        return self.data.shape[0]
 
 
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'w')
