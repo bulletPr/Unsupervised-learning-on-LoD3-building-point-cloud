@@ -37,6 +37,7 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
 from ArCH import ArchDataset
 from dataloader import get_dataloader
+from shapenet_dataloader import get_shapenet_dataloader
 
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import is_h5_list, load_seg_list
@@ -93,28 +94,34 @@ class Trainer(object):
         self.write = SummaryWriter(log_dir = self.tboard_dir)
         print(str(args))
         
-        # initial dataset filelist
-        print('-Preparing dataset file list...')
-        if self.split == 'train':
-            self.filelist = os.path.join(DATA_DIR, self.dataset_name, "train_data_files.txt")
-        else:
-            self.filelist = os.path.join(DATA_DIR, self.dataset_name, "test_data_files.txt")
-        is_list_of_h5_list = not is_h5_list(self.filelist)
-        if is_list_of_h5_list:
-            seg_list = load_seg_list(self.filelist)
-            print("segmentation files:" + str(len(seg_list)))
-            seg_list_idx = 0
-            filepath = seg_list[seg_list_idx]
-            seg_list_idx = seg_list_idx + 1
-        else:
-            filepath = filelist
         
         # initial dataset by dataloader
         print('-Preparing dataset...')
-        self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True)
-        num_train = len(self.train_loader.dataset)
-        print("training set size: ", self.train_loader.dataset.__len__())
-        print("validate set size: " + str(num_train))
+        if self.dataset_name == 'arch':
+            # initial dataset filelist
+            print('-Preparing dataset file list...')
+            if self.split == 'train':
+                self.filelist = os.path.join(DATA_DIR, self.dataset_name, "train_data_files.txt")
+            else:
+                self.filelist = os.path.join(DATA_DIR, self.dataset_name, "test_data_files.txt")
+            is_list_of_h5_list = not is_h5_list(self.filelist)
+            if is_list_of_h5_list:
+                seg_list = load_seg_list(self.filelist)
+                print("segmentation files:" + str(len(seg_list)))
+                seg_list_idx = 0
+                filepath = seg_list[seg_list_idx]
+                seg_list_idx = seg_list_idx + 1
+            else:
+                filepath = filelist
+        
+            print('-Now loading ArCH dataset...')
+            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True)
+            print("training set size: ", self.train_loader.dataset.__len__())
+       
+        if self.dataset_name == 'shapenetcorev2':
+            print('-Loading ShapeNetCore dataset...')
+            self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = 'shapenetcorev2', batch_size=args.batch_size, num_workers=args.workers,        num_points=2048, shuffle=True)
+            print("training set size: ", self.train_loader.dataset.__len__())
         
         #self.test_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers)
         #print("testing set size: ", self.test_loader.dataset.__len__())

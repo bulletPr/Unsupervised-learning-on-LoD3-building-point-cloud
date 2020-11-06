@@ -74,7 +74,7 @@ def local_cov(pts, idx):
     # x = torch.matmul(x[:,:,1:].transpose(3, 2), x[:,:,1:])
     # x = x.view(batch_size, num_points, 9).transpose(2, 1)   # (batch_size, 9, num_points)
 
-    x = torch.cat((pts, x), dim=1)                          # (batch_size, 12, num_points)
+    x = torch.cat((pt1s, x), dim=1)                          # (batch_size, 12, num_points)
 
     return x
 

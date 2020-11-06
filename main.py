@@ -41,7 +41,7 @@ def get_parser():
                         help='Number of dims for feature ')
     parser.add_argument('--k', type=int, default=None, metavar='N',
                         help='Num of nearest neighbors to use for KNN')
-    parser.add_argument('--dataset', type=str, default='arch', metavar='N',
+    parser.add_argument('--dataset', type=str, default='shapenetcorev2', metavar='N',
                         choices=['arch','shapenetcorev2','modelnet40', 'modelnet10'],
                         help='Encoder to use, [arch, shapenetcorev2, modelnet40, modelnet10]')
     parser.add_argument('--split', type=str, default='train', metavar='N',

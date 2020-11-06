@@ -49,14 +49,12 @@ class ArchDataset(Dataset):
         
         #define all train/test file
         self.path_h5py_all =[]
-
-        # acquire split file dir
-        log_string("check paths length:" + str(self.path_h5py_all))
         
         log_string("Read datasets by load .h5 files, filelist: " + str(filelist))
         self.path_h5py_all = filelist
         
         self.data, _, self.num_points, self.labels, _ = load_seg(self.path_h5py_all)
+        
         if self.shuffle:
             self.data, self.num_points, self.labels = grouped_shuffle([self.data, self.num_points, self.labels])
         log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.labels.shape) + "]")
@@ -79,8 +77,6 @@ class ArchDataset(Dataset):
         #colors = torch.from_numpy()
         label = torch.from_numpy(np.array([label]).astype(np.int8))
         label = label.squeeze(0)
-        log_string("read point_set: [" + str(index) + "]")
-        log_string("point_set size: [" + str(point_set.shape) + "," + str(label.shape) + "]")
         return point_set, label
 
 
@@ -93,22 +89,3 @@ def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()
     print(out_str)
-
-
-    '''
-        if split == 'train':
-            self.filelist = os.path.join(self.root, 'train_data_files.txt') 
-            # Read filelist
-            print('{}-Preparing datasets...'.format(datetime.now()))
-            is_list_of_h5_list = not is_h5_list(self.filelist)
-            if is_list_of_h5_list:
-                seg_list = load_seg_list(self.filelist)
-                print("segmentation files:" + str(len(seg_list)))
-                seg_list_idx = 0
-                self.path_txt_all = seg_list[seg_list_idx]
-                seg_list_idx = seg_list_idx + 1
-            else:
-                self.path_txt_all = self.filelist
-        else:
-            self.path_txt_all = os.path.join(self.root, 'test_data_files.txt')
-    '''
