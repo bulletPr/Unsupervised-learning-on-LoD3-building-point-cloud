@@ -1,0 +1,6 @@
+Namespace(batch_size=16, dataset='shapenetcorev2', dropout=0.5, encoder='foldnet', epochs=248, eval=False, experiment_name=None, feat_dims=512, gpu_mode=False, k=None, model_path='', num_points=2048, snapshot_interval=10, split='train', use_jitter=False, use_rotate=False, use_translate=False, workers=16)
+-Preparing dataset...
+-Loading ShapeNetCore dataset...
+(2048, 2048, 3)
+training set size:  35708
+training start!!!
