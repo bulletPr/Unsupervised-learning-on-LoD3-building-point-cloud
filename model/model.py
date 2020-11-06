@@ -183,7 +183,6 @@ class FoldNet_Decoder(nn.Module):
     def __init__(self, args):
         super(FoldNet_Decoder, self).__init__()
         self.m = 2025
-        self.shape = args.shape
         self.meshgrid=[[-0.3,0.3,45], [-0.3,-0.3,45]]
         self.fold1 = nn.Sequential(
                 nn.Conv1d(args.feat_dims+2, args.feat_dims, 1),
@@ -460,8 +459,8 @@ class DGCNN_Cls_Classifier(nn.Module):
 # ----------------------------------------
 
 class DGCNN_FoldNet(nn.Module):
-    def __init__(self, num_points):
-        super(FoldNet, self).__init__()
+    def __init__(self, args):
+        super(DGCNN_FoldNet, self).__init__()
         if args.encoder == 'foldnet':
             self.encoder = FoldNet_Encoder(args)
         elif args.encoder == 'dgcnn_classification':

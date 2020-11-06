@@ -25,6 +25,8 @@ import os
 import sys
 import numpy as np
 import shutil
+import argparse
+import torch.optim as optim
 
 from tensorboardX import SummaryWriter
 from model import DGCNN_FoldNet
@@ -62,8 +64,8 @@ class Trainer(object):
         file = [f for f in args.model_path.split('/')]
         if args.experiment_name != None:
             self.experiment_id = 'Reconstruct_' + args.experiment_name
-        elif file[-2] == 'models':
-            self.experiment_id = file[-3]
+        #elif file[-2] == 'models':
+            #self.experiment_id = file[-3]
         else:
             self.experiment_id = "Reconstruct" + time.strftime('%m%d%H%M%S')
         snapshot_root = 'snapshort/%s' %self.experiment_id
@@ -93,13 +95,13 @@ class Trainer(object):
         
         # initial dataset filelist
         print('-Preparing dataset file list...')
-        if self.split == 'train'
+        if self.split == 'train':
             self.filelist = os.path.join(DATA_DIR, self.dataset_name, "train_data_files.txt")
         else:
             self.filelist = os.path.join(DATA_DIR, self.dataset_name, "test_data_files.txt")
         is_list_of_h5_list = not is_h5_list(self.filelist)
         if is_list_of_h5_list:
-            seg_list = load_seg_list(filelist)
+            seg_list = load_seg_list(self.filelist)
             print("segmentation files:" + str(len(seg_list)))
             seg_list_idx = 0
             filepath = seg_list[seg_list_idx]
@@ -112,10 +114,10 @@ class Trainer(object):
         self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True)
         num_train = len(self.train_loader.dataset)
         print("training set size: ", self.train_loader.dataset.__len__())
-        print("validate set size: " + num_train)
+        print("validate set size: " + str(num_train))
         
-        self.test_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers)
-        print("testing set size: ", self.test_loader.dataset.__len__())
+        #self.test_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers)
+        #print("testing set size: ", self.test_loader.dataset.__len__())
 
         self.model = DGCNN_FoldNet(args)
 
@@ -124,8 +126,8 @@ class Trainer(object):
             self.model = self.model.cuda()
 
         #load pretrained model
-        if args.pretrain != '':
-            self._load_pretrain(args.pretrain)
+        if args.model_path != '':
+            self._load_pretrain(args.model_path)
 
         # initialize optimizer
         self.parameter = self.model.parameters()
@@ -133,12 +135,11 @@ class Trainer(object):
 
 
     def train(self):
-       self.train_hist={
+        self.train_hist={
                'loss': [],
                'per_epoch_time': [],
-               'total_time': []
-        }
-
+               'total_time': []}
+        
         best_loss = 1000000000
 
         # start epoch index
@@ -183,13 +184,14 @@ class Trainer(object):
     def train_epoch(self, epoch):
         epoch_start_time = time.time()
         loss_buf = []
+        num_train = len(self.train_loader.dataset)
         num_batch = int(num_train/self.batch_size)
         for iter, (pts, _) in enumerate(self.train_loader):
             if self.gpu_mode:
                 pts = pts.cuda()
             
-            start_idx = (batch_size * iter) % num_train
-            end_idx = min(start_idx + batch_size, num_train)
+            start_idx = (self.batch_size * iter) % num_train
+            end_idx = min(start_idx + self.batch_size, num_train)
             batch_size_train = end_idx - start_idx
             
             if start_idx + batch_size_train == num_train:

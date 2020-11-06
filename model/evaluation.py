@@ -38,7 +38,7 @@ from dataloader import get_dataloader
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from net_utils import Logger
 
-class Inference(object):
+class Evaluation(object):
     def __init__(self, args):
         self.batch_size = args.batch_size
         self.gpu_mode = args.gpu_mode
@@ -112,7 +112,7 @@ class Inference(object):
                 n += 1
             loss = self.model.get_loss(pts, output)
             loss_buf.append(loss.detach().cpu.numpy())
-        print(f'Avg loss {np.mean(loss_buf)}')
+        print("Avg loss {}. ".format(np.mean(loss_buf)))
         print("finish generating train set for SVM.")
 
         # genrate test set for SVM
@@ -140,7 +140,7 @@ class Inference(object):
                 n += 1
             loss = self.model.get_loss(pts, output)
             loss_buf.append(loss.detach().cpu().numpy())
-        print(f'Avg loss {np.mean(loss_buf)}')
+        print("Avg loss { }.".format(np.mean(loss_buf)))
         print("finish generating train set for SVM.")
 
         return self.feature_dir
@@ -149,4 +149,4 @@ class Inference(object):
     def _load_pretrain(self, pretrain):
         state_dict = torch.load(pretrain, map_location='cpu')
         self.model.load_state_dict(state_dict)
-        print(f"Load model from {pretrain}")
+        print("Load model from { }.".format(pretrain))
