@@ -16,15 +16,15 @@
 #
 #
 
-
+import os
+import sys
 import argparse
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(BASE_DIR)
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'model'))
 
-from evaluation import Inference
+from evaluation import Evaluation
 from trainer import Trainer
 from svm import SVM
 
@@ -41,9 +41,12 @@ def get_parser():
                         help='Number of dims for feature ')
     parser.add_argument('--k', type=int, default=None, metavar='N',
                         help='Num of nearest neighbors to use for KNN')
-    parser.add_argument('--dataset', type=str, default='shapenetcorev2', metavar='N',
+    parser.add_argument('--dataset', type=str, default='arch', metavar='N',
                         choices=['arch','shapenetcorev2','modelnet40', 'modelnet10'],
                         help='Encoder to use, [arch, shapenetcorev2, modelnet40, modelnet10]')
+    parser.add_argument('--split', type=str, default='train', metavar='N',
+                        choices=['train','test'],
+                        help='train or test')
     parser.add_argument('--use_rotate', action='store_true',
                         help='Rotate the pointcloud before training')
     parser.add_argument('--use_translate', action='store_true',
@@ -53,7 +56,7 @@ def get_parser():
     parser.add_argument('--batch_size', type=int, default=16, metavar='batch_size',
                         help='Size of batch)')
     parser.add_argument('--workers', type=int, help='Number of data loading workers', default=16)
-    parser.add_argument('--epochs', type=int, default=None, metavar='N',
+    parser.add_argument('--epochs', type=int, default=248, metavar='N',
                         help='Number of episode to train ')
     parser.add_argument('--snapshot_interval', type=int, default=10, metavar='N',
                         help='Save snapshot interval ')
@@ -75,7 +78,7 @@ if __name__ == '__main__':
         reconstruction = Trainer(args)
         reconstruction.train()
     else:
-        inference = Inference(args)
+        inference = Evaluation(args)
         feature_dir = inference.evaluate()
         svm = SVM(feature_dir)
         svm.classify()

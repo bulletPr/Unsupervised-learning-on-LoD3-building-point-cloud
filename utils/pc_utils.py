@@ -153,6 +153,13 @@ def load_h5(h5_filename):
     label = f['label_seg'][...].astype(np.int64)
     return (data, label)
 
+def load_h5_seg(h5_filename):
+    f = h5py.File(h5_filename, 'r')
+    data = f['data'][...].astype(np.float32)
+    label = f['label_seg'][...].astype(np.int64)
+    return (np.concatenate(data, axis=0),
+            np.concatenate(label, axis=0))
+
 def load_cls(filelist):
     points = []
     labels = []
