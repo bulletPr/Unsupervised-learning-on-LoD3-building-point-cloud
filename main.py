@@ -15,6 +15,7 @@
 #      YUWEI CAO - 2020/10/26 17:17 PM 
 #
 #
+from __future__ import print_function
 
 import os
 import sys
@@ -41,7 +42,7 @@ def get_parser():
                         help='Number of dims for feature ')
     parser.add_argument('--k', type=int, default=None, metavar='N',
                         help='Num of nearest neighbors to use for KNN')
-    parser.add_argument('--dataset', type=str, default='arch', metavar='N',
+    parser.add_argument('--dataset', type=str, default='shapenetcorev2', metavar='N',
                         choices=['arch','shapenetcorev2','modelnet40', 'modelnet10'],
                         help='Encoder to use, [arch, shapenetcorev2, modelnet40, modelnet10]')
     parser.add_argument('--split', type=str, default='train', metavar='N',
@@ -56,7 +57,7 @@ def get_parser():
     parser.add_argument('--batch_size', type=int, default=16, metavar='batch_size',
                         help='Size of batch)')
     parser.add_argument('--workers', type=int, help='Number of data loading workers', default=16)
-    parser.add_argument('--epochs', type=int, default=248, metavar='N',
+    parser.add_argument('--epochs', type=int, default=10, metavar='N',
                         help='Number of episode to train ')
     parser.add_argument('--snapshot_interval', type=int, default=10, metavar='N',
                         help='Save snapshot interval ')
@@ -68,6 +69,8 @@ def get_parser():
                         help='Num of points to use')
     parser.add_argument('--model_path', type=str, default='', metavar='N',
                         help='Path to load model')
+    parser.add_argument('--num_workers', type=int, default=0, metavar='N',
+                        help='Number of workers to load data')
     args = parser.parse_args()
     return args
 

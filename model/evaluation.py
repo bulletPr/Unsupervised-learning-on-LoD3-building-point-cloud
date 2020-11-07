@@ -1,4 +1,3 @@
-
 #
 #
 #      0=================================0
@@ -20,21 +19,24 @@
 # ----------------------------------------
 # Import packages and constant
 # ----------------------------------------
+from __future__ import print_function
 import time
 import os
 import sys
 import numpy as np
 import shutil
 import h5py
+import torch
 
-from tensorboardX import SummaryWriter
+#from tensorboardX import SummaryWriter
 from model import DGCNN_FoldNet
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
-from ArCH import ArchDataset
+#from ArCH import ArchDataset
 from dataloader import get_dataloader
+from shapenet_dataloader import get_shapenet_dataloader
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from net_utils import Logger
 
@@ -44,9 +46,10 @@ class Evaluation(object):
         self.gpu_mode = args.gpu_mode
         self.dataset_name = args.dataset
         self.data_dir = os.path.join(ROOT_DIR, 'data')
+        self.workers = args.workers
 
         #create outpu directory and files
-        file = [f for f in args.model_path.split('/')]
+        #file = [f for f in args.model_path.split('/')]
         if args.experiment_name != None:
             self.experiment_id = args.experiment_name
         else:
@@ -54,7 +57,7 @@ class Evaluation(object):
         cache_root = 'cache/%s' % self.experiment_id
         os.makedirs(cache_root, exist_ok=True)
         self.feature_dir = os.path.join(cache_root, 'features/')
-        sys.stdout = Logger(os.path.join(cahce_root, 'inference_log.txt'))
+        sys.stdout = Logger(os.path.join(cache_root, 'inference_log.txt'))
 
         #check directory
         if not os.path.exists(self.feature_dir):
@@ -65,16 +68,38 @@ class Evaluation(object):
 
         #print args
         print(str(args))
-
-        self.infer_loader_train = get_dataloader(root=self.data_dir, dataset_name = self.dataset_name, split='train', num_points=args.num_points,
-                num_workers=args.num_workers, batch_size = self.batch_size)
-        self.infer_loader_test = get_dataloader(root=self.data_dir, dataset_name = self.dataset_name, split = 'test', num_points=args.num_points,
-                num_workers= args.num_workers, batch_size = self.batch_size)
-        print("training set size: ", self.infer_train_loader.dataset.__len__())
-        print("testing set size: ", self.infer_test_loader.dataset.__len__())
+        print('-Preparing evaluation dataset...')  
+        
+        if self.dataset_name == 'arch':
+            print('-Preparing Loading ArCH evaluation dataset...')
+            
+            # load training data
+            log_string('-Now loading ArCH training classifer dataset...')
+            train_filelist = os.path.join(self.data_dir, self.dataset_name, "svm_data_files.txt")
+            self.infer_loader_train = get_dataloader(filelist=train_filelist, batch_size=self.batch_size, 
+                                                     num_workers=args.workers, group_shuffle=False,shuffle=False)
+            log_string("training classifer set size: " + self.infer_loader_train.dataset.__len__())
+            
+            #load testing data
+            log_string('-Now loading test ArCH dataset...')
+            test_filelist = os.path.join(self.data_dir, self.dataset_name, "test_data_files.txt")
+            self.infer_loader_test = get_dataloader(filelist=test_filelist, batch_size=self.batch_size, num_workers=args.workers, group_shuffle=False, shuffle=False)
+            log_string("test set size: " + self.infer_loader_test.dataset.__len__())
+       
+        elif self.dataset_name == 'shapenetcorev2':
+            print('-Preparing ShapeNetCore evaluation dataset...')
+            # load training data
+            self.infer_loader_train = get_shapenet_dataloader(root=self.data_dir, dataset_name = self.dataset_name, split='train', num_points=args.num_points,
+                    num_workers=args.num_workers, batch_size = self.batch_size)
+            log_string("training set size: " + str(self.infer_loader_train.dataset.__len__()))
+            
+            # load testing data
+            self.infer_loader_test = get_shapenet_dataloader(root=self.data_dir, dataset_name = self.dataset_name, split = 'test', num_points=args.num_points,
+                    num_workers= args.num_workers, batch_size = self.batch_size)
+            log_string("testing set size: "+ str(self.infer_loader_test.dataset.__len__()))
 
         #initialize model
-        self.model = DGCNN_FoldingNet(args)
+        self.model = DGCNN_FoldNet(args)
 
         if args.model_path != '':
             self._load_pretrain(args.model_path)
@@ -93,6 +118,7 @@ class Evaluation(object):
         lbs_train = []
         n = 0
         for iter, (pts, lbs) in enumerate(self.infer_loader_train):
+            #log_string("batch idx: " + str(iter) + " for generating train set for SVM...")
             if self.gpu_mode:
                 pts = pts.cuda()
                 lbs = lbs.cuda()
@@ -106,13 +132,14 @@ class Evaluation(object):
                 f['data']=feature_train
                 f['label']=lbs_train
                 f.close()
-                print("Train set {} for SVM saved.".format(n))
+                log_string("size of generate traing set: " + str(feature_train.shape) + " ," + str(lbs_train.shape))
+                print(f"Train set {n} for SVM saved.")
                 feature_train = []
                 lbs_train = []
                 n += 1
-            loss = self.model.get_loss(pts, output)
-            loss_buf.append(loss.detach().cpu.numpy())
-        print("Avg loss {}. ".format(np.mean(loss_buf)))
+            #loss = self.model.get_loss(pts, output)
+            #loss_buf.append(loss.detach().cpu().numpy())
+        #print(f"Avg loss {np.mean(loss_buf)}.")
         print("finish generating train set for SVM.")
 
         # genrate test set for SVM
@@ -121,7 +148,8 @@ class Evaluation(object):
         lbs_test = []
         n = 0
         for iter, (pts, lbs) in enumerate(self.infer_loader_test):
-            if gpu_mode:
+            log_string("batch idx: " + str(iter) + " for generating test set for SVM...")
+            if self.gpu_mode:
                 pts = pts.cuda()
                 lbs = lbs.cuda()
             output, feature = self.model(pts)
@@ -134,14 +162,15 @@ class Evaluation(object):
                 f['data'] = feature_test
                 f['label'] = lbs_test
                 f.close()
-                print("Test set {} for SVM saved.".format(n))
+                log_string("size of generate test set: " + str(feature_test.shape) + " ," + str(lbs_test.shape))
+                print(f"Test set {n} for SVM saved.")
                 feature_test = []
                 lbs_test = []
                 n += 1
-            loss = self.model.get_loss(pts, output)
-            loss_buf.append(loss.detach().cpu().numpy())
-        print("Avg loss { }.".format(np.mean(loss_buf)))
-        print("finish generating train set for SVM.")
+            #loss = self.model.get_loss(pts, output)
+            #loss_buf.append(loss.detach().cpu().numpy())
+        #print(f"Avg loss {np.mean(loss_buf)}.")
+        print("finish generating test set for SVM.")
 
         return self.feature_dir
 
@@ -149,4 +178,11 @@ class Evaluation(object):
     def _load_pretrain(self, pretrain):
         state_dict = torch.load(pretrain, map_location='cpu')
         self.model.load_state_dict(state_dict)
-        print("Load model from { }.".format(pretrain))
+        print(f"Load model from {pretrain}.")
+
+
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','evaluation_log.txt'), 'w')
+def log_string(out_str):
+    LOG_FOUT.write(out_str + '\n')
+    LOG_FOUT.flush()
+    print(out_str)
