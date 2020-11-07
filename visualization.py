@@ -1,6 +1,39 @@
+#
+#
+#      0=================================0
+#      |    Project Name                 |
+#      0=================================0
+#
+#
+# ----------------------------------------------------------------------------------------------------------------------------
+#
+#      Implements: Used code/feature in pretained model to infer features of input and the output features are used to SVM
+#
+# ----------------------------------------------------------------------------------------------------------------------------
+#
+#      YUWEI CAO - 2020/11/6 18:31 PM 
+#      Modified from AnTao
+#
+
+
+# ----------------------------------------
+# Import packages and constant
+# ----------------------------------------
+
 import os
+import time
 import numpy as np
-from data_preprocessing import Dataset
+import torch
+import itertools
+import argparse
+from glob import glob
+
+import sys
+ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(ROOT_DIR)
+sys.path.append(os.path.join(ROOT_DIR, 'model'))
+from model import DGCNN_FoldNet
+sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
 
 def standardize_bbox(pcl, points_per_object):
     pt_indices = np.random.choice(pcl.shape[0], points_per_object, replace=False)
@@ -51,7 +84,7 @@ xml_head = \
 xml_ball_segment = \
 """
     <shape type="sphere">
-        <float name="radius" value="0.02"/>
+        <float name="radius" value="0.015"/>
         <transform name="toWorld">
             <translate x="{}" y="{}" z="{}"/>
             <scale value="0.7"/>
@@ -67,7 +100,7 @@ xml_tail = \
     <shape type="rectangle">
         <ref name="bsdf" id="surfaceMaterial"/>
         <transform name="toWorld">
-            <scale x="10" y="10" z="10"/>
+            <scale x="10" y="10" z="1"/>
             <translate x="0" y="0" z="-0.5"/>
         </transform>
     </shape>
@@ -95,13 +128,32 @@ def mitsuba(pcl, path, clr=None):
     xml_segments = [xml_head]
 
     # pcl = standardize_bbox(pcl, 2048)
+    # pcl = pcl - np.expand_dims(np.mean(pcl, axis=0), 0)  # center
+    # dist = np.max(np.sqrt(np.sum(pcl ** 2, axis=1)), 0)
+    # pcl = pcl / dist  # scale
+
     pcl = pcl[:,[2,0,1]]
     pcl[:,0] *= -1
     h = np.min(pcl[:,2])
 
+    if clr == "plane":
+        clrgrid = [[0, 1, 45], [1, 0, 45]]
+        b = np.linspace(*clrgrid[0])
+        c = np.linspace(*clrgrid[1])
+        color_all = np.array(list(itertools.product(b, c)))
+        color_all = np.concatenate((np.linspace(1, 0, 2025)[..., np.newaxis], color_all), axis=1)
+    elif clr == "sphere":
+        color_all = np.load("sphere.npy")
+        color_all = (color_all + 0.3) / 0.6
+    elif clr == "gaussian":
+        color_all = np.load("gaussian.npy")
+        color_all = (color_all + 0.3) / 0.6
+
     for i in range(pcl.shape[0]):
         if clr == None:
             color = colormap(pcl[i,0]+0.5,pcl[i,1]+0.5,pcl[i,2]+0.5)
+        elif clr in ["plane", "sphere", "gaussian"]:
+            color = color_all[i]
         else:
             color = clr
         if h < -0.25:
@@ -115,21 +167,118 @@ def mitsuba(pcl, path, clr=None):
     with open(path, 'w') as f:
         f.write(xml_content)
 
-if __name__ == '__main__':   
-    item = 0
-    split = 'train'
-    dataset_name = 'shapenetcorev2'
-    root = os.getcwd()
-    save_root = os.path.join("image", dataset_name)
-    if not os.path.exists(save_root):
-        os.makedirs(save_root)
+def load_pretrain(model, pretrain):
+    state_dict = torch.load(pretrain, map_location='cpu')
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+    for key, val in state_dict.items():
+        if key[:6] == 'module':
+            name = key[7:]  # remove 'module.'
+        else:
+            name = key
+        new_state_dict[name] = val
+    model.load_state_dict(new_state_dict)
+    print(f"Load model from {pretrain}")
+    return model   
 
 
-    d = Dataset(root=root, dataset_name=dataset_name, 
-                        num_points=2048, split=split, random_rotation=False, load_name=True)
-    print("datasize:", d.__len__())
+def visualize(args):
+    # create exp directory
+    file = [f for f in args.model_path.split('/')]
+    if args.exp_name != None:
+        experiment_id = args.exp_name
+    elif file[-1] == '':
+        experiment_id = time.strftime('%m%d%H%M%S')
+        one_model = True
+    elif file[-1][-4:] == '.pkl':
+        experiment_id = file[-3]
+        one_model = True
+    elif file[-1] == 'models':
+        experiment_id = file[-2]
+        one_model = False
+    else:
+        experiment_id = time.strftime('%m%d%H%M%S')
+    save_root = os.path.join('mitsuba', experiment_id, args.dataset, args.split + str(args.item))
+    os.makedirs(save_root, exist_ok=True)
+    
+    # initialize dataset
+    from ShapeNetCore import Dataset
+    dataset = Dataset(root=args.dataset_root, dataset_name=args.dataset, 
+                        num_points=args.num_points, split=args.split, load_name=True)
 
-    pts, lb, n = d[item]
-    print(pts.size(), pts.type(), lb.size(), lb.type(), n) 
-    path = os.path.join(save_root, dataset_name + '_' + split + str(item) + '_' + str(n) + '.xml')
-    mitsuba(pts.numpy(), path)
+    # load data from dataset
+    pts, lb, n = dataset[args.item]
+    print(f"Dataset: {args.dataset}, split: {args.split}, item: {args.item}, category: {n}")
+
+    # generate XML file for original point cloud
+    if args.draw_original:
+        save_path = os.path.join(save_root, args.dataset + '_' + args.split + str(args.item) + '_' + str(n) + '_origin.xml')
+        color = [0.4, 0.4, 0.6]
+        mitsuba(pts.numpy(), save_path, color)
+
+    # generate XML file for decoder souce point 
+    if args.draw_source_points:
+        meshgrid = [[-0.3, 0.3, 45], [-0.3, 0.3, 45]]
+        x = np.linspace(*meshgrid[0])
+        y = np.linspace(*meshgrid[1])
+        points = np.array(list(itertools.product(x, y)))
+        points = np.concatenate((points,np.zeros(2025)[..., np.newaxis]), axis=1)
+
+        save_path = os.path.join(save_root, args.dataset + '_' + args.split + str(args.item) + '_' + str(n) + '_epoch0.xml')
+        mitsuba(points, save_path, clr='plane')
+
+    # initialize model
+    model = DGCNN_FoldNet(args)
+
+    if one_model:
+        if file[0] != '':
+            model = load_pretrain(model, args.model_path)
+        model.eval()
+        reconstructed_pl, _ = model(pts.view(1, 2048, 3))
+        save_path = os.path.join(save_root, file[-1][:-4] + args.split + str(args.item) + '_' + str(n) + '.xml')
+        mitsuba(reconstructed_pl[0].detach().numpy(), save_path, clr=args.shape)
+    else:
+        load_path = glob(os.path.join(args.model_path, '*.pkl'))
+        load_path.sort()
+        for path in load_path:
+            model_name = [p for p in path.split('/')][-1]
+            model = load_pretrain(model, path)
+            model.eval()
+            reconstructed_pl, _ = model(pts.view(1, 2048, 3))
+            save_path = os.path.join(save_root, model_name[:-4] + '_' + args.dataset + '_' + args.split + str(args.item) + '_' + str(n) + '.xml')
+            mitsuba(reconstructed_pl[0].detach().numpy(), save_path, clr=args.shape)
+
+
+if __name__ == '__main__':  
+    parser = argparse.ArgumentParser(description='Visualization reconstructed point cloud')
+    parser.add_argument('--exp_name', type=str, default=None, metavar='N',
+                        help='Name of the experiment')
+    parser.add_argument('--item', type=int, default=0, metavar='N',
+                        help='Item of point cloud to load')
+    parser.add_argument('--split', type=str, default='train', metavar='N',
+                        choices=['train','test', 'val', 'trainval', 'all'],
+                        help='Split to use, [foldingnet, dgcnn_cls, dgcnn_seg]')
+    parser.add_argument('--encoder', type=str, default='foldingnet', metavar='N',
+                        choices=['foldnet', 'dgcnn_cls', 'dgcnn_seg'],
+                        help='Encoder to use, [foldingnet, dgcnn_cls, dgcnn_seg]')
+    parser.add_argument('--feat_dims', type=int, default=512, metavar='N',
+                        help='Number of dims for feature ')
+    parser.add_argument('--k', type=int, default=None, metavar='N',
+                        help='Num of nearest neighbors to use for KNN')
+    parser.add_argument('--dataset', type=str, default='shapenetcorev2', metavar='N',
+                        choices=['shapenetcorev2','modelnet40', 'modelnet10'],
+                        help='Encoder to use, [shapenetcorev2,modelnet40, modelnet10]')
+    parser.add_argument('--dataset_root', type=str, default='./data', help="Dataset root path")
+    parser.add_argument('--num_points', type=int, default=2048,
+                        help='Num of points to use')
+    parser.add_argument('--model_path', type=str, default='', metavar='N',
+                        help='Path to load model')
+    parser.add_argument('--draw_original', action='store_true',
+                        help='Draw original point cloud')
+    parser.add_argument('--draw_source_points', action='store_true',
+                        help='Draw source points for decoder')
+    args = parser.parse_args()
+
+    print(str(args))
+
+    visualize(args)

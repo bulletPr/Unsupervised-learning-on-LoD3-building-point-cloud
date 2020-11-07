@@ -23,7 +23,7 @@
 
 import torch
 import torch.nn as nn
-from torch.autograd import Variable
+#from torch.autograd import Variable
 import torch.nn.functional as F
 
 
@@ -42,8 +42,12 @@ class ChamferLoss(nn.Module):
         xx = torch.bmm(x, x.transpose(2, 1))
         yy = torch.bmm(y, y.transpose(2, 1))
         zz = torch.bmm(x, y.transpose(2, 1))
-        diag_ind_x = torch.arange(0, num_points_x)
-        diag_ind_y = torch.arange(0, num_points_y)
+        if self.use_cuda:
+            dtype = torch.cuda.LongTensor
+        else:
+            dtype = torch.LongTensor
+        diag_ind_x = torch.arange(0, num_points_x).type(dtype)
+        diag_ind_y = torch.arange(0, num_points_y).type(dtype)
         if x.get_device() != -1:
             diag_ind_x = diag_ind_x.cuda(x.get_device())
             diag_ind_y = diag_ind_y.cuda(x.get_device())

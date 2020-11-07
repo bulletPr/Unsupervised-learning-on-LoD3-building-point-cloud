@@ -205,6 +205,7 @@ def load_seg(filelist):
         data = h5py.File(os.path.join(folder, line.strip()), 'r')
         points.append(data['data'][...].astype(np.float32))
         labels.append(data['label'][...].astype(np.int64))
+        data.close()
         point_nums.append(data['data_num'][...].astype(np.int32))
         labels_seg.append(data['label_seg'][...].astype(np.int64))
         if 'indices_split_to_full' in data:

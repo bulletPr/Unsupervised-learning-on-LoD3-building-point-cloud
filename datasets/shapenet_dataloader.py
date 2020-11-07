@@ -26,10 +26,11 @@ DATA_DIR = os.path.join(ROOT_DIR, 'data')
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import is_h5_list, load_seg_list
 
-def get_shapenet_dataloader(root, dataset_name, batch_size=32,  
+def get_shapenet_dataloader(root, dataset_name, split='train', batch_size=32,  
         num_points=2048, num_workers=4, shuffle=True):
     dataset = Dataset(
             root=root,
+            split=split,
             dataset_name = dataset_name,
             num_points=num_points)
     dataloader = torch.utils.data.DataLoader(

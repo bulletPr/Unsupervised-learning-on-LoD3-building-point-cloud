@@ -72,9 +72,9 @@ def local_cov(pts, idx):
     x = torch.matmul(x[:,:,0].unsqueeze(3), x[:,:,1].unsqueeze(2))  # (batch_size, num_points, 6, 1) * (batch_size,
                                                                     # num_points, 1, 6) -> (batch_size, num_points, 6, 6)
     # x = torch.matmul(x[:,:,1:].transpose(3, 2), x[:,:,1:])
-    # x = x.view(batch_size, num_points, 9).transpose(2, 1)   # (batch_size, 9, num_points)
+    x = x.view(batch_size, num_points, 9).transpose(2, 1)   # (batch_size, 9, num_points)
 
-    x = torch.cat((pt1s, x), dim=1)                          # (batch_size, 12, num_points)
+    x = torch.cat((pts, x), dim=1)                          # (batch_size, 12, num_points)
 
     return x
 
@@ -134,7 +134,7 @@ class FoldNet_Encoder(nn.Module):
             self.k = args.k
         self.n = 2048 # input point cloud size
         self.mlp1 = nn.Sequential(
-                nn.Conv1d(6,64,1),
+                nn.Conv1d(12,64,1),
                 nn.ReLU(),
                 nn.Conv1d(64,64,1),
                 nn.ReLU(),
@@ -210,12 +210,12 @@ class FoldNet_Decoder(nn.Module):
         return grid.float()
 
 
-    def forward(self, input):
-        input = input.transpose(1,2).repeat(1,1,self.m) #(batch_size,feat_dims,num_points)
+    def forward(self, x):
+        x = x.transpose(1,2).repeat(1,1,self.m) #(batch_size,feat_dims,num_points)
         grid = self.build_grid(x.shape[0]).transpose(1,2) #(bs, 2, feat_dims)
         if x.get_device() != -1:
             grid = grid.cuda(x.get_device())
-        concate1 = torch.cat((input, grid),dim=1) #(bs, feat_dims+2, num_points)
+        concate1 = torch.cat((x, grid),dim=1) #(bs, feat_dims+2, num_points)
         after_fold1 = self.fold1(concate1) #(bs,3,num_points)
         concate2 = torch.cat((x, after_fold1), dim=1) #(bs, feat_dims+3, num_points)
         after_fold2 = self.fold2(concate2) #(bs, 3, num_points)
@@ -422,13 +422,11 @@ class DGCNN_Seg_Encoder(nn.Module):
 class DGCNN_Cls_Classifier(nn.Module):
     def __init__(self, args):
         super(DGCNN_Cls_Classifier, self).__init__()
-        if args.dataset == 'modelnet40':
-            output_channels = 40
-        elif args.dataset == 'modelnet10':
+        if args.dataset == 'arch':
             output_channels = 10
         elif args.dataset == 'shapenetcorev2':
             output_channels = 55
-        elif args.dataset == 'shapenetpart':
+        elif args.dataset == 'semantic3D':
             output_channels = 16
 
         self.linear1 = nn.Linear(args.feat_dims*2, 512, bias=False)
@@ -479,7 +477,7 @@ class DGCNN_FoldNet(nn.Module):
         return list(self.encoder.parameters()) + list(self.decoder.parameters())
 
     def get_loss(self, input, output):
-        #input (bs, 2048, 6)
+        #input (bs, 2048, 3)
         #output (bs, 2025,3)
         return self.loss(input, output)
 

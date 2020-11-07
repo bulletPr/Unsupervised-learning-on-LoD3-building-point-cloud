@@ -57,9 +57,16 @@ class Dataset(data.Dataset):
         
         self.path_h5py_all.sort()
         data, label = self.load_h5py(self.path_h5py_all)
-        print(data[1].shape)
+        
+        if self.load_name:
+            self.path_json_all.sort()
+            self.name = self.load_json(self.path_json_all)    # load label name
+
         self.data = np.concatenate(data, axis=0)
         self.label = np.concatenate(label, axis=0)
+        #this is for test
+        self.data = self.data[:100, ...]
+        self.label = self.label[:100, ...]
 
 
     def get_path(self, type):
