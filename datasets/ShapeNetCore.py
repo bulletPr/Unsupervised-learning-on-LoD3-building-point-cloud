@@ -65,8 +65,8 @@ class Dataset(data.Dataset):
         self.data = np.concatenate(data, axis=0)
         self.label = np.concatenate(label, axis=0)
         #this is for test
-        self.data = self.data[:100, ...]
-        self.label = self.label[:100, ...]
+        #self.data = self.data[:100, ...]
+        #self.label = self.label[:100, ...]
 
 
     def get_path(self, type):
