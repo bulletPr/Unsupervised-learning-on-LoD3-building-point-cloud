@@ -57,7 +57,7 @@ def get_parser():
     parser.add_argument('--batch_size', type=int, default=16, metavar='batch_size',
                         help='Size of batch)')
     parser.add_argument('--workers', type=int, help='Number of data loading workers', default=16)
-    parser.add_argument('--epochs', type=int, default=248, metavar='N',
+    parser.add_argument('--epochs', type=int, default=258, metavar='N',
                         help='Number of episode to train ')
     parser.add_argument('--snapshot_interval', type=int, default=10, metavar='N',
                         help='Save snapshot interval ')
