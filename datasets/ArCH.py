@@ -64,6 +64,11 @@ class ArchDataset(Dataset):
         point_set = self.data[index]
         label = self.labels[index]
 
+        # data sampling
+        choise = np.random.choice(len(label), 2048)
+        point_set=point_set[choise, :]
+        label = label[choise]
+        
         # data augument
         if self.random_translate:
             point_set = translate_pointcloud(point_set[:,0:3])

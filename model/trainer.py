@@ -106,15 +106,14 @@ class Trainer(object):
                 filelist = os.path.join(DATA_DIR, self.dataset_name, "train_data_files.txt")
             else:
                 filelist = os.path.join(DATA_DIR, self.dataset_name, "test_data_files.txt")
+            
             self.is_list_of_h5_list = not is_h5_list(filelist)
             if self.is_list_of_h5_list:
                 self.seg_list = load_seg_list(filelist)
-                print("segmentation files:" + str(len(self.seg_list)))
                 self.seg_list_idx = 0
                 filepath = self.seg_list[self.seg_list_idx]
                 self.seg_list_idx += 1
             else:
-                print("testing files:" + str(len(self.seg_list)))
                 filepath = filelist
         
             print('-Now loading ArCH dataset...')
