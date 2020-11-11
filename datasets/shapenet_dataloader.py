@@ -40,14 +40,13 @@ def get_shapenet_dataloader(root, dataset_name, split='train', batch_size=32,
             num_workers=num_workers)
 
     return dataloader
-'''
+
 if __name__ == '__main__':
     
     dataloader = get_shapenet_dataloader(root=DATA_DIR,
-            dataset_name = 'shapenetcorev2', batch_size=4, num_points=2048,shuffle=True)
+            dataset_name = 'shapenetcorev2', batch_size=16, num_points=2048,shuffle=False)
     print("dataloader size: ", dataloader.dataset.__len__())
     for iter, (pts,seg) in enumerate(dataloader):
         print("points: ", pts.shape, pts.type)
         print("segs: ", seg.shape, seg.type)
         break
-'''

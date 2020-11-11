@@ -65,8 +65,8 @@ class ArchDataset(Dataset):
         label = self.labels[index]
 
         # data sampling
-        choise = np.random.choice(len(label), 2048)
-        point_set=point_set[choise, :]
+        choise = np.random.choice(point_set.shape[0], 2048)
+        point_set=point_set[choise][...]
         label = label[choise]
         
         # data augument
