@@ -70,6 +70,10 @@ def get_parser():
                         help='Path to load model')
     parser.add_argument('--num_workers', type=int, default=0, metavar='N',
                         help='Number of workers to load data')
+    parser.add_argument('--percentage', type=int, default=100, metavar='percentage', 
+                        help='percentage of data used for svm training')
+    parser.add_argument('--feature_dir', type=str, default='', metavar='N',
+                        help='Path to load svm data')
     args = parser.parse_args()
     return args
 
@@ -80,7 +84,10 @@ if __name__ == '__main__':
         reconstruction = Trainer(args)
         reconstruction.train()
     else:
-        inference = Evaluation(args)
-        feature_dir = inference.evaluate()
-        svm = SVM(feature_dir)
+        if args.feature_dir == '':
+            inference = Evaluation(args)
+            feature_dir = inference.evaluate()
+        else:
+            feature_dir = args.feature_dir
+        svm = SVM(feature_dir, args.percentage)
         svm.classify()

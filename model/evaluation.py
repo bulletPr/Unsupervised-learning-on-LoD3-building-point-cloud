@@ -37,6 +37,7 @@ sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
 #from ArCH import ArchDataset
 from dataloader import get_dataloader
 from shapenet_dataloader import get_shapenet_dataloader
+import modelnet40_loader
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from net_utils import Logger
 
@@ -57,7 +58,7 @@ class Evaluation(object):
         cache_root = 'cache/%s' % self.experiment_id
         os.makedirs(cache_root, exist_ok=True)
         self.feature_dir = os.path.join(cache_root, 'features/')
-        sys.stdout = Logger(os.path.join(cache_root, 'inference_log.txt'))
+        sys.stdout = Logger(os.path.join(cache_root, 'gen_svm_h5_log.txt'))
 
         #check directory
         if not os.path.exists(self.feature_dir):
@@ -97,6 +98,15 @@ class Evaluation(object):
             self.infer_loader_test = get_shapenet_dataloader(root=self.data_dir, dataset_name = self.dataset_name, split = 'test', num_points=args.num_points,
                     num_workers= args.num_workers, batch_size = self.batch_size)
             log_string("testing set size: "+ str(self.infer_loader_test.dataset.__len__()))
+
+        elif self.dataset == 'modelnet40':
+            dataset = modelnet40_loader.ModelNetH5Dataset(root = 'modelnet40_ply_hdf5_2048', train=True, npoints = 2048)
+            self.infer_loader_train = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size,
+                                          shuffle=True, num_workers=self.workers)
+
+            test_dataset = modelnet40_loader.ModelNetH5Dataset(root = 'modelnet40_ply_hdf5_2048', train = False, npoints = 2048)
+            self.infer_loader_test = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, 
+                                          shuffle=True, num_workers=self.workers)
 
         #initialize model
         self.model = DGCNN_FoldNet(args)
@@ -181,7 +191,7 @@ class Evaluation(object):
         print(f"Load model from {pretrain}.")
 
 
-LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','evaluation_log.txt'), 'w')
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','gen_svm_h5_log.txt'), 'w')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()
