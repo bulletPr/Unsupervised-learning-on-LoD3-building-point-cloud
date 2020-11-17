@@ -64,11 +64,11 @@ class Trainer(object):
         self.num_workers = args.num_workers
 
         # create output directory and files
-        #file = [f for f in args.model_path.split('/')]
+        file = [f for f in args.model_path.split('/')]
         if args.experiment_name != None:
             self.experiment_id = 'Reconstruct_' + args.experiment_name
-        #elif file[-2] == 'models':
-            #self.experiment_id = file[-3]
+        elif file[-2] == 'models':
+            self.experiment_id = file[-3]
         else:
             self.experiment_id = "Reconstruct" + time.strftime('%m%d%H%M%S')
         snapshot_root = 'snapshot/%s' %self.experiment_id
@@ -122,28 +122,25 @@ class Trainer(object):
        
         elif self.dataset_name == 'shapenetcorev2':
             print('-Loading ShapeNetCore dataset...')
-            self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = self.dataset_name, batch_size=args.batch_size, num_workers=args.workers,        num_points=2048, shuffle=True)
+            self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = self.dataset_name, split='all', batch_size=args.batch_size, 
+                                    num_workers=args.workers, num_points=2048, shuffle=True, random_rotate = args.use_rotate)
             print("training set size: ", self.train_loader.dataset.__len__())
         
-        #self.test_loader = get_dataloader(filelist=self.filepath, batch_size=args.batch_size, num_workers=args.workers)
-        #print("testing set size: ", self.test_loader.dataset.__len__())
-
+        #initial model
         self.model = DGCNN_FoldNet(args)
+        #load pretrained model
+        if args.model_path != '':
+            self._load_pretrain(args.model_path)
 
         # load model to gpu
         if self.gpu_mode:
             self.model = self.model.cuda()
 
-        #load pretrained model
-        if args.model_path != '':
-            self._load_pretrain(args.model_path)
-
         # initialize optimizer
         self.parameter = self.model.parameters()
-        self.optimizer = optim.Adam(self.parameter, lr=0.00001*16/args.batch_size, betas=(0.9, 0.999), weight_decay=1e-6)
+        self.optimizer = optim.Adam(self.parameter, lr=0.0001*16/args.batch_size, betas=(0.9, 0.999), weight_decay=1e-6)
 
-
-    def train(self):
+    def run(self):
         self.train_hist={
                'loss': [],
                'per_epoch_time': [],
@@ -221,7 +218,7 @@ class Trainer(object):
             loss = self.model.get_loss(pts, output)
             # backward
             loss.backward()
-            self.optimizer.zero_grad()
+            self.optimizer.step()
             loss_buf.append(loss.detach().cpu().numpy())
 
         # finish one epoch
@@ -233,15 +230,32 @@ class Trainer(object):
 
 
     def _snapshot(self, epoch):
+        state_dict = self.model.state_dict()
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            new_state_dict[name] = val
         save_dir = os.path.join(self.save_dir, self.dataset_name)
-        torch.save(self.model.state_dict(), save_dir+"_"+str(epoch)+'.pkl')
+        torch.save(new_state_dict, save_dir + "_" + str(epoch) + '.pkl')
         print(f"Save model to {save_dir}_{str(epoch)}.pkl")
 
 
     def _load_pretrain(self, pretrain):
         state_dict = torch.load(pretrain, map_location='cpu')
-        self.model.load_state_dict(state_dict)
-        print(f"Load model from {pretrain}.pkl")
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            new_state_dict[name] = val
+        self.model.load_state_dict(new_state_dict)
+        print(f"Load model from {pretrain}")
 
 
     def _get_lr(self, group=0):

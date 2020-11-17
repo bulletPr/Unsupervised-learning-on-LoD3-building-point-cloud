@@ -100,11 +100,12 @@ class Evaluation(object):
             log_string("testing set size: "+ str(self.infer_loader_test.dataset.__len__()))
 
         elif self.dataset_name == 'modelnet40':
-            dataset = modelnet40_loader.ModelNetH5Dataset(root = os.path.join(self.data_dir,'modelnet40_ply_hdf5_2048'), train=True, npoints = 2048)
+            datapath = os.path.join(self.data_dir, "modelnet40_ply_hdf5_2048")
+            dataset = modelnet40_loader.ModelNetH5Dataset(root = datapath, train=True, npoints = 2048)
             self.infer_loader_train = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size,
                                           shuffle=True, num_workers=self.workers)
 
-            test_dataset = modelnet40_loader.ModelNetH5Dataset(root = os.path.join(self.data_dir,'modelnet40_ply_hdf5_2048'), train = False, npoints = 2048)
+            test_dataset = modelnet40_loader.ModelNetH5Dataset(root = datapath, train = False, npoints = 2048)
             self.infer_loader_test = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, 
                                           shuffle=True, num_workers=self.workers)
 
@@ -187,8 +188,18 @@ class Evaluation(object):
 
     def _load_pretrain(self, pretrain):
         state_dict = torch.load(pretrain, map_location='cpu')
-        self.model.load_state_dict(state_dict)
-        print(f"Load model from {pretrain}.")
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            if key[:10] == 'classifier':
+                continue
+            new_state_dict[name] = val
+        self.model.load_state_dict(new_state_dict)
+        print(f"Load model from {pretrain}")
 
 
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','gen_svm_h5_log.txt'), 'w')

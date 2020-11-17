@@ -95,6 +95,23 @@ def calc_4nn_cur(P, nh, nw, plot=False):
         vis.plt.title('Fold'); vis.plt.gca().set_axis_off()
     return ret
 
+
+def load_pretrain(model, pretrain):
+        state_dict = torch.load(pretrain, map_location='cpu')
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            if key[:10] == 'classifier':
+                continue
+            new_state_dict[name] = val
+        model.load_state_dict(new_state_dict)
+        print(f"Load model from {pretrain}")
+
+
 if __name__=='__main__':
     
     parser = argparse.ArgumentParser()
@@ -119,7 +136,7 @@ if __name__=='__main__':
 
 
     dataloader = get_shapenet_dataloader(root=DATA_DIR,
-            dataset_name = 'shapenetcorev2', split='test', batch_size=16, num_points=2048,shuffle=False)
+            dataset_name = 'shapenetcorev2', split='test', batch_size=1, num_points=2048,shuffle=False)
     
     li = list(enumerate(dataloader))
     print(len(li))
@@ -145,8 +162,8 @@ if __name__=='__main__':
 
     foldingnet = DGCNN_FoldNet(args)
 
-    #foldingnet.load_state_dict(torch.load('cls/foldingnet_model_150.pth'))
-    foldingnet.load_state_dict(torch.load(args.model))
+    foldingnet.load_state_dict(torch.load('/content/drive/Shareddrives/yuwei.cao94/Unsupervised-learning-on-LoD3-building-point-cloud/snapshot/Reconstruct_Shapenet/models/shapenetcorev2_270.pkl'))
+    #load_pretrain(foldingnet, args.model)
     foldingnet.cuda()
 
     chamferloss = ChamferLoss()
@@ -166,21 +183,20 @@ if __name__=='__main__':
         points = points.cuda()
         recon_pc, code = foldingnet(points)
         points_show = points.cpu().detach().numpy()
-        #print(points_show.shape)
         #plot and save original images
         fig_ori = plt.figure()
         a1 = fig_ori.add_subplot(111,projection='3d')
-        a1.scatter(points_show[0,0,:],points_show[0,1,:],points_show[0,2,:],marker='.',s=20,c='#B8B8B8')
+        a1.scatter(points_show[0,:,1],points_show[0,:,1],points_show[0,:,2],marker='.',s=20,c='#B8B8B8')
         #plt.show()
-        plt.savefig('show_output/rec_%d.png'%i)
+        plt.savefig('show_output/ori_%d.png'%i)
         
         re_show = recon_pc.cpu().detach().numpy()
         #plot and save reconstruct images
         fig_re = plt.figure()
         a2 = fig_re.add_subplot(111,projection='3d')
         cm = plt.get_cmap('jet')
-        col = [cm(float(i)/(re_show.shape[-1])) for i in range(re_show.shape[-1])]
-        a2.scatter(re_show[0,0,:],re_show[0,1,:],re_show[0,2,:],c=col, marker='.', s=20)
+        col = [cm(float(i)/(re_show.shape[-2])) for i in range(re_show.shape[-2])]
+        a2.scatter(re_show[0,:,0],re_show[0,:,1],re_show[0,:,2],c=col, marker='.', s=20)
         plt.savefig('show_output/rec_%d.png'%i)
         
         points_show = points_show.transpose(0,2,1)
@@ -189,7 +205,7 @@ if __name__=='__main__':
         np.savetxt('show_output/ori_%d.pts'%i,points_show[0])
         np.savetxt('show_output/rec_%d.pts'%i,re_show[0])
 
-        code_save = code.cpu().detach().numpy().astype(int)
-        np.savetxt('show_output/%d.bin'%i, code_save)
-        if i==3:
+        #code_save = code.cpu().detach().numpy().astype(int)
+        #np.savetxt('show_output/%d.bin'%i, code_save)
+        if i==1:
             break

@@ -28,6 +28,7 @@ from evaluation import Evaluation
 from trainer import Trainer
 from svm import SVM
 
+
 def get_parser():
     parser = argparse.ArgumentParser(description='Unsupervised Building Point Cloud Feature Learning')
     parser.add_argument('--experiment_name', type=str, default=None, metavar='N',
@@ -85,12 +86,13 @@ if __name__ == '__main__':
     args = get_parser()
     if args.eval == False:
         reconstruction = Trainer(args)
-        reconstruction.train()
+        reconstruction.run()
     else:
         if args.feature_dir == '':
             inference = Evaluation(args)
             feature_dir = inference.evaluate()
         else:
             feature_dir = args.feature_dir
-    svm = SVM(feature_dir, args.percentage, args.svm_dataset)
-    svm.classify()
+        print(feature_dir)
+        svm = SVM(feature_dir, args.percentage, args.svm_dataset)
+        svm.classify()

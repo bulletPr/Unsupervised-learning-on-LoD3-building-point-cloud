@@ -1,8 +1,19 @@
-"""
-@Author: Yuwei Cao
-@File: data_processing.py
-@Time: 2020/10/4 10:31AM
-"""
+#
+#
+#      0=================================0
+#      |    Project Name                 |
+#      0=================================0
+#
+#
+# ----------------------------------------------------------------------------------------------------------------------
+#
+#      Implements: knn, graph filter, foldnet/dgcnn encoder, foldnet decoder
+#
+# ----------------------------------------------------------------------------------------------------------------------
+#
+#      YUWEI CAO - 2020/10/4 10:31AM
+#
+#
 
 import torch.utils.data as data
 import os
@@ -23,7 +34,7 @@ import pc_utils
 
 #shapeNet and ModelNet dataset
 class Dataset(data.Dataset):
-    def __init__(self, root, dataset_name='modelnet40', num_points=2048,
+    def __init__(self, root, dataset_name='shapenetcorev2', num_points=2048,
             split='train', load_name=False, random_rotate=False, random_jitter=False,
             random_translate=False):
         assert dataset_name.lower() in ['shapenetcorev2', 'shapenetpart', 'modelnet40',

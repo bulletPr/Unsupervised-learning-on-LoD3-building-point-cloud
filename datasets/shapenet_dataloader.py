@@ -1,4 +1,3 @@
-
 #
 #
 #      0=================================0
@@ -15,6 +14,11 @@
 #      YUWEI CAO - 2020/10/21 5:26 PM 
 #
 #
+
+
+# ----------------------------------------
+# Import packages and constant
+# ----------------------------------------
 import torch
 from ShapeNetCore import Dataset
 import os.path
@@ -23,16 +27,17 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
-sys.path.append(os.path.join(ROOT_DIR, 'utils'))
-from pc_utils import is_h5_list, load_seg_list
-
 def get_shapenet_dataloader(root, dataset_name, split='train', batch_size=32,  
-        num_points=2048, num_workers=4, shuffle=True):
+        num_points=2048, num_workers=4, shuffle=True, random_rotate=False, random_jitter=False,
+            random_translate=False):
     dataset = Dataset(
             root=root,
             split=split,
             dataset_name = dataset_name,
-            num_points=num_points)
+            num_points=num_points,
+            random_rotate = random_rotate,
+            random_jitter = random_jitter,
+            random_translate = random_translate)
     dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,

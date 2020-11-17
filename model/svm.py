@@ -8,7 +8,7 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Implements: Support Vector Machine
+#      Implements: Support Vector Machine, Resize training dataset
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
@@ -26,6 +26,8 @@ import h5py
 import numpy as np
 from glob import glob
 from sklearn.svm import LinearSVC
+
+#packages for drawing and saving results
 import matplotlib.pyplot as plt
 from scipy import stats
 import seaborn as sns; sns.set()
@@ -170,6 +172,7 @@ class SVM(object):
         plt.savefig("output/heatmap_%s.png"%percent, dpi=300)
 
         log_string("Transfer linear SVM accuracy: {:.2f}%".format(accuracy*100))
+
 
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','svm_log.txt'), 'w')
 def log_string(out_str):

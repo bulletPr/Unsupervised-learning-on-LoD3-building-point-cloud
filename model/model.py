@@ -184,7 +184,7 @@ class FoldNet_Decoder(nn.Module):
         super(FoldNet_Decoder, self).__init__()
         self.m = 2025
         self.meshgrid=[[-0.3,0.3,45], [-0.3,-0.3,45]]
-        self.fold1 = nn.Sequential(
+        self.folding1 = nn.Sequential(
                 nn.Conv1d(args.feat_dims+2, args.feat_dims, 1),
                 nn.ReLU(),
                 nn.Conv1d(args.feat_dims, args.feat_dims, 1),
@@ -192,7 +192,7 @@ class FoldNet_Decoder(nn.Module):
                 nn.Conv1d(args.feat_dims, 3, 1),
         )
 
-        self.fold2 = nn.Sequential(
+        self.folding2 = nn.Sequential(
                 nn.Conv1d(args.feat_dims+3, args.feat_dims, 1),
                 nn.ReLU(),
                 nn.Conv1d(args.feat_dims, args.feat_dims,1),
@@ -216,9 +216,9 @@ class FoldNet_Decoder(nn.Module):
         if x.get_device() != -1:
             grid = grid.cuda(x.get_device())
         concate1 = torch.cat((x, grid),dim=1) #(bs, feat_dims+2, num_points)
-        after_fold1 = self.fold1(concate1) #(bs,3,num_points)
+        after_fold1 = self.folding1(concate1) #(bs,3,num_points)
         concate2 = torch.cat((x, after_fold1), dim=1) #(bs, feat_dims+3, num_points)
-        after_fold2 = self.fold2(concate2) #(bs, 3, num_points)
+        after_fold2 = self.folding2(concate2) #(bs, 3, num_points)
         return after_fold2.transpose(1,2)
 
 
