@@ -21,10 +21,17 @@
 # Import packages and constant
 # ----------------------------------------
 import os
+import sys
 import h5py
 import numpy as np
 from glob import glob
 from sklearn.svm import LinearSVC
+import matplotlib.pyplot as plt
+from scipy import stats
+import seaborn as sns; sns.set()
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
@@ -38,7 +45,7 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
     elif path == 'cache/shapenetpart/features/':
         original_name = ['train0.h5', 'train1.h5', 'train2.h5', 
         'train3.h5', 'train4.h5', 'train5.h5', 'train6.h5', 'train7.h5']
-    elif path == 'cache/shapenetcore/features/'
+    elif path == 'cache/shapenetcore/features/':
         original_name = ['train0.h5', 'train1.h5', 'train2.h5', 
         'train3.h5', 'train4.h5', 'train5.h5', 'train6.h5', 'train7.h5']
     else:
@@ -104,11 +111,11 @@ def get_category_names(dataset_name):
     else:
         shape_names_file = os.path.join(DATA_DIR, 'arc', 'shape_names.txt')
     shape_names = [line.rstrip() for line in open(shape_names_file)]
-    return shape_names == 'shapenetcore'
+    return shape_names
 
     
 class SVM(object):
-    def __init__(self, feature_dir, percent=100, dataset_name):
+    def __init__(self, feature_dir, percent, dataset_name):
         self.feature_dir = feature_dir
 
         if(percent<100):
@@ -156,8 +163,8 @@ class SVM(object):
         mat = confusion_matrix(self.test_label, result)
         plt.figure(figsize=(10, 16))
         sns.heatmap(mat.T, square=True, annot=True, fmt='d', cbar=False, cmap='YlOrRd',
-            xticklabels=get_category_names(),
-            yticklabels=get_category_names())
+            xticklabels=get_category_names(dataset_name),
+            yticklabels=get_category_names(dataset_name))
         plt.xlabel('true label')
         plt.ylabel('predicted label')
         plt.savefig("output/heatmap_%s.png"%percent, dpi=300)

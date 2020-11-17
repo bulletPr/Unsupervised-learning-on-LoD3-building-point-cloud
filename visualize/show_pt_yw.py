@@ -20,9 +20,19 @@ import torchvision.datasets as dset
 import torchvision.transforms as transforms
 import torchvision.utils as vutils
 from torch.autograd import Variable
-from datasets import PartDataset
 import torch.nn.functional as F
-from pointnet import FoldingNet_1024,ChamferLoss
+
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_DIR)
+
+DATA_DIR = os.path.join(ROOT_DIR, 'data')
+
+sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
+from shapenet_dataloader import get_shapenet_dataloader
+
+sys.path.append(os.path.join(ROOT_DIR, 'model'))
+from model import DGCNN_FoldNet
+from loss import ChamferLoss
 
 def calc_4nn_cur(P, nh, nw, plot=False):
     sk=1
@@ -88,10 +98,16 @@ def calc_4nn_cur(P, nh, nw, plot=False):
 if __name__=='__main__':
     
     parser = argparse.ArgumentParser()
-
+    parser.add_argument('--encoder', type=str, default='foldnet', metavar='N',
+                        choices=['foldnet', 'dgcnn_cls', 'dgcnn_seg'],
+                        help='Encoder to use, [foldnet, dgcnn_cls, dgcnn_seg]')
     parser.add_argument('--model', type=str, default = '',  help='model path')
-    opt = parser.parse_args()
-    print (opt)
+    parser.add_argument('--k', type=int, default=None, metavar='N',
+                        help='Num of nearest neighbors to use for KNN')
+    parser.add_argument('--feat_dims', type=int, default=512, metavar='N',
+                        help='Number of dims for feature ')
+    args = parser.parse_args()
+    print (args)
     
     np.random.seed(100)
     pt = np.random.rand(250,3)
@@ -101,13 +117,9 @@ if __name__=='__main__':
     #ax.scatter(pt[:,0],pt[:,1],pt[:,2])
     #plt.show()
 
-    class_choice = 'Chair'
-    pt_root = 'shapenetcore_partanno_segmentation_benchmark_v0'
-    npoints = 2500
 
-    shapenet_dataset = PartDataset(root = pt_root, class_choice = class_choice, classification = True,train = False)
-    print('len(shapenet_dataset) :',len(shapenet_dataset))
-    dataloader = torch.utils.data.DataLoader(shapenet_dataset,batch_size=1,shuffle=False)
+    dataloader = get_shapenet_dataloader(root=DATA_DIR,
+            dataset_name = 'shapenetcorev2', split='test', batch_size=16, num_points=2048,shuffle=False)
     
     li = list(enumerate(dataloader))
     print(len(li))
@@ -131,10 +143,10 @@ if __name__=='__main__':
 
     # plt.show()
 
-    foldingnet = FoldingNet_1024()
+    foldingnet = DGCNN_FoldNet(args)
 
     #foldingnet.load_state_dict(torch.load('cls/foldingnet_model_150.pth'))
-    foldingnet.load_state_dict(torch.load(opt.model))
+    foldingnet.load_state_dict(torch.load(args.model))
     foldingnet.cuda()
 
     chamferloss = ChamferLoss()
@@ -144,15 +156,15 @@ if __name__=='__main__':
     foldingnet.eval()
 
     try:
-        os.makedirs('bin8')
+        os.makedirs('show_output')
     except OSError:
         pass
 
     for i,data in enumerate(dataloader):
         points, target = data
-        points = points.transpose(2,1)
+        #points = points.transpose(2,1)
         points = points.cuda()
-        recon_pc, _, code = foldingnet(points)
+        recon_pc, code = foldingnet(points)
         points_show = points.cpu().detach().numpy()
         #print(points_show.shape)
         #plot and save original images
@@ -160,7 +172,7 @@ if __name__=='__main__':
         a1 = fig_ori.add_subplot(111,projection='3d')
         a1.scatter(points_show[0,0,:],points_show[0,1,:],points_show[0,2,:],marker='.',s=20,c='#B8B8B8')
         #plt.show()
-        plt.savefig('img8/ori_%s_%d.png'%(class_choice,i))
+        plt.savefig('show_output/rec_%d.png'%i)
         
         re_show = recon_pc.cpu().detach().numpy()
         #plot and save reconstruct images
@@ -169,33 +181,15 @@ if __name__=='__main__':
         cm = plt.get_cmap('jet')
         col = [cm(float(i)/(re_show.shape[-1])) for i in range(re_show.shape[-1])]
         a2.scatter(re_show[0,0,:],re_show[0,1,:],re_show[0,2,:],c=col, marker='.', s=20)
-        plt.savefig('img8/rec_%s_%d.png'%(class_choice,i))
+        plt.savefig('show_output/rec_%d.png'%i)
         
         points_show = points_show.transpose(0,2,1)
         re_show = re_show.transpose(0,2,1)
 
-        np.savetxt('recon_pc8/ori_%s_%d.pts'%(class_choice,i),points_show[0])
-        np.savetxt('recon_pc8/rec_%s_%d.pts'%(class_choice,i),re_show[0])
+        np.savetxt('show_output/ori_%d.pts'%i,points_show[0])
+        np.savetxt('show_output/rec_%d.pts'%i,re_show[0])
 
         code_save = code.cpu().detach().numpy().astype(int)
-        np.savetxt('bin8/%s_%d.bin'%(class_choice, i), code_save)
-        if i==30:
+        np.savetxt('show_output/%d.bin'%i, code_save)
+        if i==3:
             break
-
-   
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

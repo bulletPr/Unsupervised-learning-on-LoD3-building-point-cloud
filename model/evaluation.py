@@ -45,7 +45,7 @@ class Evaluation(object):
     def __init__(self, args):
         self.batch_size = args.batch_size
         self.gpu_mode = args.gpu_mode
-        self.dataset_name = args.dataset
+        self.dataset_name = args.svm_dataset
         self.data_dir = os.path.join(ROOT_DIR, 'data')
         self.workers = args.workers
 
@@ -99,12 +99,12 @@ class Evaluation(object):
                     num_workers= args.num_workers, batch_size = self.batch_size)
             log_string("testing set size: "+ str(self.infer_loader_test.dataset.__len__()))
 
-        elif self.dataset == 'modelnet40':
-            dataset = modelnet40_loader.ModelNetH5Dataset(root = 'modelnet40_ply_hdf5_2048', train=True, npoints = 2048)
+        elif self.dataset_name == 'modelnet40':
+            dataset = modelnet40_loader.ModelNetH5Dataset(root = os.path.join(self.data_dir,'modelnet40_ply_hdf5_2048'), train=True, npoints = 2048)
             self.infer_loader_train = torch.utils.data.DataLoader(dataset, batch_size=self.batch_size,
                                           shuffle=True, num_workers=self.workers)
 
-            test_dataset = modelnet40_loader.ModelNetH5Dataset(root = 'modelnet40_ply_hdf5_2048', train = False, npoints = 2048)
+            test_dataset = modelnet40_loader.ModelNetH5Dataset(root = os.path.join(self.data_dir,'modelnet40_ply_hdf5_2048'), train = False, npoints = 2048)
             self.infer_loader_test = torch.utils.data.DataLoader(test_dataset, batch_size=self.batch_size, 
                                           shuffle=True, num_workers=self.workers)
 
@@ -158,7 +158,7 @@ class Evaluation(object):
         lbs_test = []
         n = 0
         for iter, (pts, lbs) in enumerate(self.infer_loader_test):
-            log_string("batch idx: " + str(iter) + " for generating test set for SVM...")
+            #log_string("batch idx: " + str(iter) + " for generating test set for SVM...")
             if self.gpu_mode:
                 pts = pts.cuda()
                 lbs = lbs.cuda()

@@ -5,7 +5,6 @@ import h5py
 from glob import glob
 import torch
 
-dataset_path = '../data/modelnet40_ply_hdf5_2048'
 
 def load_h5(path):
     all_data = []
@@ -30,7 +29,7 @@ class ModelNetH5Dataset(object):
         else:
             list_filename = os.path.join(self.root, '*test*.h5')
         # Read in the list of categories in MODELNET40
-        self.shape_names_file = os.path.join('modelnet40_ply_hdf5_2048', 'shape_names.txt')
+        self.shape_names_file = os.path.join(dataset_path, 'shape_names.txt')
         self.cat = [line.rstrip() for line in open(shape_names_file)]
 
         self.h5_files += glob(list_filename)

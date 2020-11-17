@@ -42,8 +42,8 @@ def get_parser():
     parser.add_argument('--k', type=int, default=None, metavar='N',
                         help='Num of nearest neighbors to use for KNN')
     parser.add_argument('--dataset', type=str, default='shapenetcorev2', metavar='N',
-                        choices=['arch','shapenetcorev2','modelnet40', 'modelnet10'],
-                        help='Encoder to use, [arch, shapenetcorev2, modelnet40, modelnet10]')
+                        choices=['arch','shapenetcorev2','modelnet40', 'shapenetpart'],
+                        help='Encoder to use, [arch, shapenetcorev2, modelnet40, shapenetpart]')
     parser.add_argument('--split', type=str, default='train', metavar='N',
                         choices=['train','test'],
                         help='train or test')
@@ -74,6 +74,9 @@ def get_parser():
                         help='percentage of data used for svm training')
     parser.add_argument('--feature_dir', type=str, default='', metavar='N',
                         help='Path to load svm data')
+    parser.add_argument('--svm_dataset', type=str, default='modelnet40', metavar='N',
+                        choices=['arch','shapenetcorev2','modelnet40'],
+                        help='SVM to use, [arch, shapenetcorev2, shapenetpart, modelnet40]')
     args = parser.parse_args()
     return args
 
@@ -89,5 +92,5 @@ if __name__ == '__main__':
             feature_dir = inference.evaluate()
         else:
             feature_dir = args.feature_dir
-        svm = SVM(feature_dir, args.percentage)
-        svm.classify()
+    svm = SVM(feature_dir, args.percentage, args.svm_dataset)
+    svm.classify()

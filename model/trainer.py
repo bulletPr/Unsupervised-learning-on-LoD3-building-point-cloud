@@ -71,7 +71,7 @@ class Trainer(object):
             #self.experiment_id = file[-3]
         else:
             self.experiment_id = "Reconstruct" + time.strftime('%m%d%H%M%S')
-        snapshot_root = 'snapshort/%s' %self.experiment_id
+        snapshot_root = 'snapshot/%s' %self.experiment_id
         tensorboard_root = 'tensorboard/%s' %self.experiment_id
         self.save_dir = os.path.join(ROOT_DIR, snapshot_root, 'models/')
         self.tboard_dir = os.path.join(ROOT_DIR, tensorboard_root)
