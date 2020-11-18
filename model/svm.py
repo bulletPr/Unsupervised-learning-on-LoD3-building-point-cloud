@@ -61,7 +61,7 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
         if os.path.exists(out_file_name):
             os.remove(out_file_name)
         fw = h5py.File(out_file_name, 'w', libver='latest')
-        dset = fw.create_dataset("data", (1,1024,),maxshape=(None,1024), dtype='<f4')
+        dset = fw.create_dataset("data", (1,512,),maxshape=(None,512), dtype='<f4')
         dset_l = fw.create_dataset("label",(1,),maxshape=(None,),dtype='uint8')
         fw.swmr_mode = True   
         f = h5py.File(ori_name)
@@ -77,8 +77,8 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
         class_dist= np.zeros(n_classes)
         for c in range(len(data)):
             class_dist[cls_label[c]]+=1
-        log_string('Ori data to size of :', np.sum(class_dist))
-        log_string ('class distribution of this dataset :',class_dist)
+        log_string('Ori data to size of :'+ str(np.sum(class_dist)))
+        log_string ('class distribution of this dataset :'+ str(class_dist))
         
         class_dist_new= (percentage*class_dist/100).astype(int)
         for i in range(n_classes):
@@ -91,7 +91,7 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
             label_c=cls_label[c]
             if(class_dist_count[label_c] < class_dist_new[label_c]):
                 class_dist_count[label_c]+=1
-                new_shape = (data_count+1,1024,)
+                new_shape = (data_count+1,512,)
                 dset.resize(new_shape)
                 dset_l.resize((data_count+1,))
                 dset[data_count,:] = data[c]
@@ -99,8 +99,8 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
                 dset.flush()
                 dset_l.flush()
                 data_count+=1
-        log_string('Finished resizing data to size of :', np.sum(class_dist_new))
-        log_string ('class distribution of resized dataset :',class_dist_new)
+        log_string('Finished resizing data to size of :'+ str(np.sum(class_dist_new)))
+        log_string ('class distribution of resized dataset :'+ str(class_dist_new))
         fw.close
 
 
@@ -119,9 +119,10 @@ def get_category_names(dataset_name):
 class SVM(object):
     def __init__(self, feature_dir, percent, dataset_name):
         self.feature_dir = feature_dir
-
-        if(percent<100):
-            ResizeDataset(path = self.feature_dir, percentage=percent, n_classes=40, shuffle=True)
+        self.percent = percent
+        self.dataset_name = dataset_name
+        if(self.percent<100):
+            ResizeDataset(path = self.feature_dir, percentage=self.percent, n_classes=40, shuffle=True)
             self.train_path = glob(os.path.join(self.feature_dir, 'train*%s_resized.h5'%percent))
         else:
             self.train_path = glob(os.path.join(self.feature_dir, 'train*.h5'))
@@ -129,6 +130,7 @@ class SVM(object):
         self.test_path = glob(os.path.join(self.feature_dir, 'test*.h5'))
 
         print("Loading feature dataset...")
+        print(self.train_path)
         train_data = []
         train_label = []
         for path in self.train_path:
@@ -161,15 +163,15 @@ class SVM(object):
         result = clf.predict(self.test_data)
         accuracy = np.sum(result==self.test_label).astype(float) / np.size(self.test_label)
         log_string(str(classification_report(self.test_label, result,
-                            target_names=get_category_names())))
+                            target_names=get_category_names(self.dataset_name))))
         mat = confusion_matrix(self.test_label, result)
         plt.figure(figsize=(10, 16))
         sns.heatmap(mat.T, square=True, annot=True, fmt='d', cbar=False, cmap='YlOrRd',
-            xticklabels=get_category_names(dataset_name),
-            yticklabels=get_category_names(dataset_name))
+            xticklabels=get_category_names(self.dataset_name),
+            yticklabels=get_category_names(self.dataset_name))
         plt.xlabel('true label')
         plt.ylabel('predicted label')
-        plt.savefig("output/heatmap_%s.png"%percent, dpi=300)
+        plt.savefig("output/heatmap_%s.png"%self.percent, dpi=300)
 
         log_string("Transfer linear SVM accuracy: {:.2f}%".format(accuracy*100))
 
