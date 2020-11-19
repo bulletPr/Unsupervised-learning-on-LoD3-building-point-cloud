@@ -78,6 +78,8 @@ def get_parser():
     parser.add_argument('--svm_dataset', type=str, default='modelnet40', metavar='N',
                         choices=['arch','shapenetcorev2','modelnet40'],
                         help='SVM to use, [arch, shapenetcorev2, shapenetpart, modelnet40]')
+    parser.add_argument('--classes', type=int, default=40, metavar='N',
+                        help='Number of categories or parts or semantic classes')
     args = parser.parse_args()
     return args
 

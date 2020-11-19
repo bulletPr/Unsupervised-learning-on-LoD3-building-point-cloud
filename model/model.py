@@ -1,4 +1,3 @@
-
 #
 #
 #      0=================================0
@@ -8,7 +7,7 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Implements: knn, graph filter, foldnet/dgcnn encoder, foldnet decoder
+#      Implements: knn, graph filter, Foldnet/DGCNN/PointNet Encoder, Foldnet Decoder, DGCNN/PointNet Classifer
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
@@ -426,8 +425,10 @@ class DGCNN_Cls_Classifier(nn.Module):
             output_channels = 10
         elif args.dataset == 'shapenetcorev2':
             output_channels = 55
-        elif args.dataset == 'semantic3D':
+        elif args.dataset == 'shapenetpart':
             output_channels = 16
+        elif args.dataset == 'modelnet40':
+            output_channels = 40
 
         self.linear1 = nn.Linear(args.feat_dims*2, 512, bias=False)
         self.bn6 = nn.BatchNorm1d(512)
@@ -452,6 +453,86 @@ class DGCNN_Cls_Classifier(nn.Module):
         return x
 
 
+# -----------------------------------------------
+# PointNet Encoder
+# -----------------------------------------------
+
+class PointNetfeat(nn.Module):
+    def __init__(self, global_feat=True):
+        super(PointNetfeat, self).__init__()
+        self.stn = Point_Transform_Net()
+        self.conv1 = torch.nn.Conv1d(3, 64, 1)
+        self.conv2 = torch.nn.Conv1d(64, 128, 1)
+        self.conv3 = torch.nn.Conv1d(128, 1024, 1)
+        self.bn1 = nn.BatchNorm1d(64)
+        self.bn2 = nn.BatchNorm1d(128)
+        self.bn3 = nn.BatchNorm1d(1024)
+        self.global_feat = global_feat
+
+    def forward(self, x):
+        batchsize = x.size()[0]
+        n_pts = x.size()[2]
+        trans = self.stn(x)
+        x = x.transpose(2, 1)
+        x = torch.bmm(x, trans)
+        x = x.transpose(2, 1)
+        x = F.relu(self.bn1(self.conv1(x)))
+        pointfeat = x
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = self.bn3(self.conv3(x))  # x = batch,1024,n(n=2048)
+        x = torch.max(x, 2, keepdim=True)[0]  # x = batch,1024,1
+        x = x.view(-1, 1024)  # x = batch,1024
+        if self.global_feat:
+            return x, trans
+        else:
+            x = x.view(-1, 1024, 1).repeat(1, 1, n_pts)
+            return torch.cat([x, pointfeat], 1), trans
+
+
+class PointNetEncoder(nn.Module):
+    def __init__(self):
+        super(PointNetEncoder, self).__init__()
+        self.feat = PointNetfeat(global_feat=True)
+        self.fc1 = nn.Linear(1024, 1024)
+        self.bn1 = nn.BatchNorm1d(1024)
+        self.fc2 = nn.Linear(1024, 1024)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x, trans = self.feat(x)  # x = batch,1024
+        x = F.relu(self.bn1(self.fc1(x)))  # x = batch,1024
+        x = self.fc2(x)  # x = batch,1024
+
+        return x, trans
+
+
+class PointNetCls(nn.Module):
+    def __init__(self, output_channels=2):
+        super(PointNetCls, self).__init__()
+        if args.dataset == 'arch':
+            output_channels = 10
+        elif args.dataset == 'shapenetcorev2':
+            output_channels = 55
+        elif args.dataset == 'shapenetpart':
+            output_channels = 16
+        elif args.dataset == 'modelnet40':
+            output_channels = 40
+
+        self.fc1 = nn.Linear(1024, 512)
+        self.fc2 = nn.Linear(512, 256)
+        self.fc3 = nn.Linear(256, k)
+        self.bn1 = nn.BatchNorm1d(512)
+        self.bn2 = nn.BatchNorm1d(256)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        batch_size = x.size(0)
+        x = F.relu(self.bn1(self.fc1(x)))
+        x = F.relu(self.bn2(self.fc2(x)))
+        x = self.fc3(x)
+        return x
+
+
 # ----------------------------------------
 # Reconstrucion Network
 # ----------------------------------------
@@ -465,6 +546,8 @@ class DGCNN_FoldNet(nn.Module):
             self.encoder = DGCNN_Cls_Encoder(args)
         elif args.encoder == 'dgcnn_segmentation':
             self.encoder = DGCNN_Seg_Encoder(args)
+        elif args.encoder == 'pointnet':
+            self.encoder = PointNetEncoder(args)
         self.decoder = FoldNet_Decoder(args)
         self.loss = ChamferLoss()
 
@@ -496,6 +579,8 @@ class ClassificationNet(nn.Module):
             self.encoder = DGCNN_Cls_Encoder(args)
         elif args.encoder == 'dgcnn_seg':
             self.encoder = DGCNN_Seg_Encoder(args)
+        elif args.encoder == 'pointnet_cls':
+            self.encoder == PointNetEncoder(args)
         if not self.is_eval:
             self.classifier = DGCNN_Cls_Classifier(args)
         self.loss = CrossEntropyLoss()
@@ -507,6 +592,43 @@ class ClassificationNet(nn.Module):
             return output, feature
         else:
             return feature
+
+# ----------------------------------------
+# Classification Network
+# ----------------------------------------
+
+class PointNetSegmentation(nn.Module):
+    def __init__(self, k=2):
+        super(PointNetDenseCls, self).__init__()
+        if args.dataset == 'arch':
+            self.k = 10
+        elif args.dataset == 'shapenetcorev2':
+            self.k = 55
+        elif args.dataset == 'shapenetpart':
+            self.k = 16
+        elif args.dataset == 'modelnet40':
+            self.k = 40
+        self.feat = PointNetfeat(global_feat=False)
+        self.conv1 = torch.nn.Conv1d(1088, 512, 1)
+        self.conv2 = torch.nn.Conv1d(512, 256, 1)
+        self.conv3 = torch.nn.Conv1d(256, 128, 1)
+        self.conv4 = torch.nn.Conv1d(128, self.k, 1)
+        self.bn1 = nn.BatchNorm1d(512)
+        self.bn2 = nn.BatchNorm1d(256)
+        self.bn3 = nn.BatchNorm1d(128)
+
+    def forward(self, x):
+        batchsize = x.size()[0]
+        n_pts = x.size()[2]
+        x, trans = self.feat(x)
+        x = F.relu(self.bn1(self.conv1(x)))
+        x = F.relu(self.bn2(self.conv2(x)))
+        x = F.relu(self.bn3(self.conv3(x)))
+        x = self.conv4(x)
+        x = x.transpose(2, 1).contiguous()
+        x = F.log_softmax(x.view(-1, self.k), dim=-1)
+        x = x.view(batchsize, n_pts, self.k)
+        return x, trans
 
     def get_parameter(self):
         return list(self.encoder.parameters()) + list(self.classifier.parameters())
