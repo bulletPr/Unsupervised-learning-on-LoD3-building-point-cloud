@@ -41,7 +41,7 @@ import modelnet40_loader
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from net_utils import Logger
 
-class Evaluation(object):
+class SaveClsFile(object):
     def __init__(self, args):
         self.batch_size = args.batch_size
         self.gpu_mode = args.gpu_mode
@@ -120,7 +120,7 @@ class Evaluation(object):
             self.model = self.model.cuda()
 
 
-    def evaluate(self):
+    def save_file(self):
         self.model.eval()
 
         # generate train set for SVM

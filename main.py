@@ -24,7 +24,7 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'model'))
 
-from evaluation import Evaluation
+from save_laten_cls import SaveClsFile
 from trainer import Trainer
 from svm import SVM
 
@@ -91,8 +91,8 @@ if __name__ == '__main__':
         reconstruction.run()
     else:
         if args.feature_dir == '':
-            inference = Evaluation(args)
-            feature_dir = inference.evaluate()
+            clsFile = SaveClsFile(args)
+            feature_dir = clsFile.save_file()
         else:
             feature_dir = args.feature_dir
         print(feature_dir)
