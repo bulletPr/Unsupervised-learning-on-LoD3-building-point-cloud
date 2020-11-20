@@ -31,14 +31,16 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
 
 import shapenet_dataloader
+
 from open3d import *
 
-from partseg_net import PartSegNet
+from model import DGCNN_FoldNet
+
 
 def main():
     USE_CUDA = True
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    capsule_net = PointCapsNet(opt.prim_caps_size, opt.prim_vec_size, opt.latent_caps_size, opt.latent_caps_size, opt.num_points)
+    ae_net = DGCNN_FoldNet(opt)
   
     if opt.model != '':
         capsule_net.load_state_dict(torch.load(opt.model))
@@ -48,19 +50,24 @@ def main():
         capsule_net = torch.nn.DataParallel(capsule_net)
         capsule_net.to(device)
     
-    if opt.dataset=='shapenet_part':
+        if opt.dataset=='shapenet_part':
+        print('-Preparing Loading shapenet_part evaluation dataset...')
         if opt.save_training:
+            log_string('-Now loading shapenet_part training classifer dataset...')
             split='train'
-        else :
-            split='test'            
+        else:
+            log_string('-Now loading test shapenet_part dataset...')
+            split='test'
+
         dataset = shapenet_part_loader.PartDataset(classification=False, npoints=opt.num_points, split=split)
-        dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4)        
+        dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4)
+        log_string("classifer set size: " + dataloader.dataset.__len__())
         
 # init saving process
     pcd = PointCloud() 
     data_size=0
-    dataset_main_path=os.path.abspath(os.path.join(BASE_DIR, '../../dataset'))
-    out_file_path=os.path.join(dataset_main_path, opt.dataset,'latent_caps')
+    dataset_main_path=os.path.abspath(os.path.join(BASE_DIR, '../cache'))
+    out_file_path=os.path.join(dataset_main_path, opt.dataset,'features')
     if not os.path.exists(out_file_path):
         os.makedirs(out_file_path);   
     if opt.save_training:
@@ -70,14 +77,14 @@ def main():
     if os.path.exists(out_file_name):
         os.remove(out_file_name)
     fw = h5py.File(out_file_name, 'w', libver='latest')
-    dset = fw.create_dataset("data", (1,opt.latent_caps_size,opt.latent_vec_size,),maxshape=(None,opt.latent_caps_size,opt.latent_vec_size), dtype='<f4')
-    dset_s = fw.create_dataset("part_label",(1,opt.latent_caps_size,),maxshape=(None,opt.latent_caps_size,),dtype='uint8')
+    dset = fw.create_dataset("data", (1, opt.latent_vec_size,),maxshape=(None,opt.latent_vec_size), dtype='<f4')
+    dset_s = fw.create_dataset("part_label",(1,opt.latent_vec_size,),maxshape=(None,opt.latent_vec_size,),dtype='uint8')
     dset_c = fw.create_dataset("cls_label",(1,),maxshape=(None,),dtype='uint8')
     fw.swmr_mode = True
 
 
 #  process for 'shapenet_part' or 'shapenet_core13'
-    capsule_net.eval()
+    ae_net.eval()
     
     for batch_id, data in enumerate(dataloader):
         points, part_label, cls_label= data
@@ -87,35 +94,33 @@ def main():
         points = points.transpose(2, 1)
         if USE_CUDA:
             points = points.cuda()
-        latent_caps, reconstructions= capsule_net(points)
-       
+        code, mid_features, reconstructions= ae_net(points)
+       	
+       	rep_code = code.view(-1,opt.latent_vec_size,1).repeat(1,1,opt.num_points)
+        con_code = torch.cat([rep_code, mid_features],1)
+        
         # For each resonstructed point, find the nearest point in the input pointset, 
         # use their part label to annotate the resonstructed point,
         # Then after checking which capsule reconstructed this point, use the part label to annotate this capsule
         reconstructions=reconstructions.transpose(1,2).data.cpu()   
         points=points.transpose(1,2).data.cpu()  
-        cap_part_count=torch.zeros([opt.batch_size, opt.latent_caps_size, opt.n_classes],dtype=torch.int64)
         for batch_no in range (points.size(0)):
             pcd.points = Vector3dVector(points[batch_no,])
             pcd_tree = KDTreeFlann(pcd)
             for point_id in range (opt.num_points):
                 [k, idx, _] = pcd_tree.search_knn_vector_3d(reconstructions[batch_no,point_id,:], 1)
                 point_part_label=part_label[batch_no, idx]            
-                caps_no=point_id % opt.latent_caps_size
-                cap_part_count[batch_no,caps_no,point_part_label]+=1            
-        _,cap_part_label=torch.max(cap_part_count,2) # if the reconstucted points have multiple part labels, use the majority as the capsule part label   
- 
     
         # write the output latent caps and cls into file
         data_size=data_size+points.size(0)
-        new_shape = (data_size,opt.latent_caps_size,opt.latent_vec_size, )
+        new_shape = (data_size,opt.latent_vec_size, )
         dset.resize(new_shape)
-        dset_s.resize((data_size,opt.latent_caps_size,))
+        dset_s.resize((data_size,))
         dset_c.resize((data_size,))
         
-        latent_caps_=latent_caps.cpu().detach().numpy()
-        target_=cap_part_label.numpy()
-        dset[data_size-points.size(0):data_size,:,:] = latent_caps_
+        code_=con_code.cpu().detach().numpy()
+        target_=point_part_label.numpy()
+        dset[data_size-points.size(0):data_size,:,:] = code_
         dset_s[data_size-points.size(0):data_size] = target_
         dset_c[data_size-points.size(0):data_size] = cls_label.squeeze().numpy()
     
