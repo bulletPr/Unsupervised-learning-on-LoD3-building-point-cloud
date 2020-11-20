@@ -50,4 +50,4 @@ DATA_DIR = os.path.join(ROOT_DIR, 'data')
 # Trainer class
 # ----------------------------------------
 
-class Train_Cls(object):
+class Train_Part(object):
