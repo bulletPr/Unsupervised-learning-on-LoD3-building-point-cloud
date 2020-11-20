@@ -24,9 +24,16 @@ ROOT_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'model'))
 
-from save_laten_cls import SaveClsFile
-from trainer import Trainer
+from train_AE import Train_AE
 from svm import SVM
+from train_part import Train_Part
+from train_sem import Train_Sem
+
+from save_latent_cls import SaveClsFile
+from save_latent_part import SavePartFile
+from save_latent_sem import SaveSemFile
+
+
 
 
 def get_parser():
@@ -86,15 +93,36 @@ def get_parser():
 
 if __name__ == '__main__':
     args = get_parser()
+
     if args.eval == False:
-        reconstruction = Trainer(args)
-        reconstruction.run()
+        reconstruction = Train_AE(args)
+        reconstruction.run() 
     else:
-        if args.feature_dir == '':
-            clsFile = SaveClsFile(args)
-            feature_dir = clsFile.save_file()
+        if args.task == 'classification':
+            if args.feature_dir == '':
+                clsFile = SaveClsFile(args)
+                feature_dir = clsFile.save_file()
+            else:
+                feature_dir = args.feature_dir
+            print(feature_dir)
+            svm = SVM(feature_dir, args.percentage, args.svm_dataset)
+            svm.classify()
+        elif args.task == 'part_segmentation':
+            if args.feature_dir == '':
+                partFile = SavePartFile(args)
+                feature_dir = partFile.save_file()
+            else:
+                feature_dir = args.feature_dir
+            print(feature_dir)
+            part_segmentation = Train_Part(args, feature_dir)
+            part_segmentation.run()
         else:
-            feature_dir = args.feature_dir
-        print(feature_dir)
-        svm = SVM(feature_dir, args.percentage, args.svm_dataset)
-        svm.classify()
+            if args.feature_dir == '':
+                semFile = SaveSemFile(args)
+                feature_dir = semFile.save_file()
+            else:
+                feature_dir = args.feature_dir
+            print(feature_dir)
+            sem_segmentation = Train_Sem(args, feature_dir)
+            sem_segmentation.run()
+        

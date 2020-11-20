@@ -1,4 +1,3 @@
-
 #
 #
 #      0=================================0
@@ -51,7 +50,7 @@ DATA_DIR = os.path.join(ROOT_DIR, 'data')
 # Trainer class
 # ----------------------------------------
 
-class Trainer(object):
+class Train_AE(object):
     def __init__(self, args):
         self.dataset_name = args.dataset
         self.epochs = args.epochs
