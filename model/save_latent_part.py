@@ -30,7 +30,7 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
 
-import shapenet_dataloader
+import shapenetpart_dataloader
 
 from open3d import *
 
@@ -52,7 +52,7 @@ def load_pretrain(model, pretrain):
         print(f"Load model from {pretrain}")
         return model
 
-        
+
 def main():
     USE_CUDA = True
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -121,8 +121,8 @@ def main():
         # For each resonstructed point, find the nearest point in the input pointset, 
         # use their part label to annotate the resonstructed point,
         # Then after checking which capsule reconstructed this point, use the part label to annotate this capsule
-        reconstructions=reconstructions.datach().cpu()   
-        points=points.datach().cpu()  
+        reconstructions=reconstructions.data().cpu()   
+        points=points.data().cpu()  
         for batch_no in range (points.size(0)):
             #pcd.points = Vector3dVector(points[batch_no,])
             #pcd_tree = KDTreeFlann(pcd)
