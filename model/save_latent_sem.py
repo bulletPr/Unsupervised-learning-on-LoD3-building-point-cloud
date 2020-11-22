@@ -26,10 +26,10 @@ from torch.autograd import Variable
 import torch.optim as optim
 import sys
 import os
+from tqdm import tqdm
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
-
-import shapenet_dataloader
+from s3dis_loader import S3DISDataset
 from dataloader import get_dataloader
 
 from open3d import *
@@ -67,25 +67,37 @@ def main():
     
     if opt.dataset=='s3dis':
         print('-Preparing Loading s3dis evaluation dataset...')
+        classes = ['ceiling','floor','wall','beam','column','window','door','table','chair','sofa','bookcase','board','clutter']
+        class2label = {cls: i for i,cls in enumerate(classes)}
+        seg_classes = class2label
+        seg_label_to_cat = {}
+        for i,cat in enumerate(seg_classes.keys()):
+            seg_label_to_cat[i] = cat
         if opt.save_training:
             log_string('-Now loading s3dis training classifer dataset...')
             split='train'
         else:
             log_string('-Now loading test s3dis dataset...')
             split='test'
-        dataset = S3DISDataset(split=split, data_root=root, num_point=NUM_POINT, test_area=6, block_size=1.0, sample_rate=1.0, transform=None)
+        
+        root = '../data/stanford_indoor3d/'
+        NUM_CLASSES = 13
+        NUM_POINT = opt.num_points
+        BATCH_SIZE = opt.batch_size
+        dataset = S3DISDataset(split=split, data_root=root, num_point=NUM_POINT, test_area=5, block_size=1.0, sample_rate=1.0, transform=None)
         log_string("start loading test data ...")
         dataLoader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True, worker_init_fn = lambda x: np.random.seed(x+int(time.time())))
         log_string("classifer set size: " + dataloader.dataset.__len__())
 
     elif opt.dataset == 'arch':
         print('-Preparing Loading ArCH evaluation dataset...')
+        data_root = '../data/'
         if opt.save_training:
             log_string('-Now loading ArCH training classifer dataset...')
-            filelist = os.path.join(self.data_dir, opt.dataset, "sem_data_files.txt")
+            filelist = os.path.join(data_root, opt.dataset, "sem_data_files.txt")
         else:
             log_string('-Now loading test ArCH dataset...')
-            filelist = os.path.join(self.data_dir, opt.dataset, "test_data_files.txt")
+            filelist = os.path.join(data_root, opt.dataset, "test_data_files.txt")
         
         # load training data
         dataloader = get_dataloader(filelist=filelist, batch_size=opt.batch_size, 
@@ -116,8 +128,8 @@ def main():
 
 #  process for 'shapenet_part' or 'shapenet_core13'
     ae_net.eval()
-    
-    for batch_id, data in enumerate(dataloader):
+    #for batch_id, data in enumerate(dataloader):
+    for batch_id, data in tqdm(enumerate(dataloader), total=len(dataloader)):
         points, sem_label, cls_label= data
         if(points.size(0)<opt.batch_size):
             break
@@ -136,8 +148,8 @@ def main():
         # For each resonstructed point, find the nearest point in the input pointset, 
         # use their part label to annotate the resonstructed point,
         # Then after checking which capsule reconstructed this point, use the part label to annotate this capsule
-        reconstructions=reconstructions.datach().cpu()   
-        points=points.datach().cpu()  
+        reconstructions=reconstructions.data.cpu()   
+        points=points.data.cpu()  
         for batch_no in range (points.size(0)):
             #pcd.points = Vector3dVector(points[batch_no,])
             #pcd_tree = KDTreeFlann(pcd)
