@@ -121,8 +121,8 @@ class Train_AE(object):
        
         elif self.dataset_name == 'shapenetcorev2':
             print('-Loading ShapeNetCore dataset...')
-            self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = self.dataset_name, split='all', batch_size=args.batch_size, 
-                                    num_workers=args.workers, num_points=2048, shuffle=True, random_rotate = args.use_rotate)
+            self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = self.dataset_name, split='train', batch_size=args.batch_size, 
+                                    num_workers=args.workers, num_points=args.num_points, shuffle=True, random_rotate = args.use_rotate)
             print("training set size: ", self.train_loader.dataset.__len__())
         
         #initial model
@@ -213,7 +213,9 @@ class Train_AE(object):
             
             # forward
             self.optimizer.zero_grad()
-            output, _ = self.model(pts)
+            #input(bs, 2048, 3), output(bs, 2025,3)
+            output, _ , _ = self.model(pts)
+            print("input: " + pts.shape + ", output shape: " + output.shape)
             loss = self.model.get_loss(pts, output)
             # backward
             loss.backward()

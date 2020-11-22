@@ -36,6 +36,22 @@ from open3d import *
 
 from model import DGCNN_FoldNet
 
+def load_pretrain(model, pretrain):
+        state_dict = torch.load(pretrain, map_location='cpu')
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            if key[:10] == 'classifier':
+                continue
+            new_state_dict[name] = val
+        model.load_state_dict(new_state_dict)
+        print(f"Load model from {pretrain}")
+        return model
+
 
 def main():
     USE_CUDA = True
@@ -43,12 +59,11 @@ def main():
     ae_net = DGCNN_FoldNet(opt)
   
     if opt.model != '':
-        capsule_net.load_state_dict(torch.load(opt.model))
- 
+        capsule_net = load_pretrain(ae_net, opt.model)
+
     if USE_CUDA:       
         print("Let's use", torch.cuda.device_count(), "GPUs!")
-        capsule_net = torch.nn.DataParallel(capsule_net)
-        capsule_net.to(device)
+        ae_net.cuda()
     
     if opt.dataset=='s3dis':
         print('-Preparing Loading s3dis evaluation dataset...')
@@ -58,7 +73,7 @@ def main():
         else:
             log_string('-Now loading test s3dis dataset...')
             split='test'
-        dataset = S3DISDataset(split=split, data_root=root, num_point=NUM_POINT, test_area=args.test_area, block_size=1.0, sample_rate=1.0, transform=None)
+        dataset = S3DISDataset(split=split, data_root=root, num_point=NUM_POINT, test_area=6, block_size=1.0, sample_rate=1.0, transform=None)
         log_string("start loading test data ...")
         dataLoader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True, worker_init_fn = lambda x: np.random.seed(x+int(time.time())))
         log_string("classifer set size: " + dataloader.dataset.__len__())
@@ -67,10 +82,10 @@ def main():
         print('-Preparing Loading ArCH evaluation dataset...')
         if opt.save_training:
             log_string('-Now loading ArCH training classifer dataset...')
-            filelist = os.path.join(self.data_dir, self.dataset_name, "sem_data_files.txt")
+            filelist = os.path.join(self.data_dir, opt.dataset, "sem_data_files.txt")
         else:
             log_string('-Now loading test ArCH dataset...')
-            filelist = os.path.join(self.data_dir, self.dataset_name, "test_data_files.txt")
+            filelist = os.path.join(self.data_dir, opt.dataset, "test_data_files.txt")
         
         # load training data
         dataloader = get_dataloader(filelist=filelist, batch_size=opt.batch_size, 
@@ -79,10 +94,11 @@ def main():
 
         
 # init saving process
-    pcd = PointCloud() 
+    #pcd = PointCloud() 
     data_size=0
-    dataset_main_path=os.path.abspath(os.path.join(BASE_DIR, '../cache'))
-    out_file_path=os.path.join(dataset_main_path, opt.dataset,'features')
+    dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
+    experiment_name = opt.dataset + opt.encoder + '_' + opt.latent_vec_size + '_' + opt.n_epochs
+    out_file_path=os.path.join(dataset_main_path, opt.experiment_name,'features')
     if not os.path.exists(out_file_path):
         os.makedirs(out_file_path);   
     if opt.save_training:
@@ -92,9 +108,9 @@ def main():
     if os.path.exists(out_file_name):
         os.remove(out_file_name)
     fw = h5py.File(out_file_name, 'w', libver='latest')
-    dset = fw.create_dataset("data", (1, opt.latent_vec_size,),maxshape=(None,opt.latent_vec_size), dtype='<f4')
-    dset_s = fw.create_dataset("seg_label",(1,opt.latent_vec_size,),maxshape=(None,opt.latent_vec_size,),dtype='uint8')
-    dset_c = fw.create_dataset("cls_label",(1,),maxshape=(None,),dtype='uint8')
+    dset = fw.create_dataset("data", (1, opt.num_points, opt.latent_vec_size,),maxshape=(None,opt.num_points, opt.latent_vec_size,), dtype='<f4')
+    dset_s = fw.create_dataset("label_seg",(1,opt.num_points,),maxshape=(None,opt.num_points,),dtype='uint8')
+    dset_c = fw.create_dataset("label",(1,),maxshape=(None,),dtype='uint8')
     fw.swmr_mode = True
 
 
@@ -106,10 +122,13 @@ def main():
         if(points.size(0)<opt.batch_size):
             break
         points = Variable(points)
-        points = points.transpose(2, 1)
+        #points = points.transpose(2, 1)
         if USE_CUDA:
             points = points.cuda()
-        code, mid_features, reconstructions= ae_net(points)
+            sem_label = sem_label.cuda()
+            cls_label = cls_label.cuda()
+        
+        reconstructions, code, mid_features = ae_net(points)
 
         rep_code = code.view(-1,opt.latent_vec_size,1).repeat(1,1,opt.num_points)
         con_code = torch.cat([rep_code, mid_features],1)
@@ -117,23 +136,23 @@ def main():
         # For each resonstructed point, find the nearest point in the input pointset, 
         # use their part label to annotate the resonstructed point,
         # Then after checking which capsule reconstructed this point, use the part label to annotate this capsule
-        reconstructions=reconstructions.transpose(1,2).data.cpu()   
-        points=points.transpose(1,2).data.cpu()  
+        reconstructions=reconstructions.datach().cpu()   
+        points=points.datach().cpu()  
         for batch_no in range (points.size(0)):
-            pcd.points = Vector3dVector(points[batch_no,])
-            pcd_tree = KDTreeFlann(pcd)
+            #pcd.points = Vector3dVector(points[batch_no,])
+            #pcd_tree = KDTreeFlann(pcd)
             for point_id in range (opt.num_points):
-                [k, idx, _] = pcd_tree.search_knn_vector_3d(reconstructions[batch_no,point_id,:], 1)
+                #[k, idx, _] = pcd_tree.search_knn_vector_3d(reconstructions[batch_no,point_id,:], 1)
                 point_sem_label=sem_label[batch_no, idx]            
     
         # write the output latent caps and cls into file
         data_size=data_size+points.size(0)
-        new_shape = (data_size,opt.latent_vec_size, )
+        new_shape = (data_size,opt.num_points, opt.latent_vec_size, )
         dset.resize(new_shape)
-        dset_s.resize((data_size,))
+        dset_s.resize((data_size,opt.num_points,))
         dset_c.resize((data_size,))
         
-        code_=con_code.cpu().detach().numpy()
+        code_=con_code.transpose(2,1).cpu().detach().numpy()
 
         target_=point_sem_label.numpy()
         dset[data_size-points.size(0):data_size,:,:] = code_
@@ -167,6 +186,7 @@ if __name__ == "__main__":
     parser.add_argument('--save_training', help='save the output latent caps of training data or test data', action='store_true')
 
     parser.add_argument('--n_classes', type=int, default=16, help='catagories of current dataset')
+    parser.add_argument('--enocder', type=str, default='fodlingnet', help='encoder use')
 
     opt = parser.parse_args()
     print(opt)

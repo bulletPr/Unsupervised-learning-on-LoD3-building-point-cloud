@@ -45,20 +45,20 @@ from net_utils import Logger
 
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
-def ResizeDataset(percentage, n_classes, shuffle):
-    dataset_main_path=os.path.abspath(os.path.join(BASE_DIR, '../../dataset'))
-    ori_file_name=os.path.join(dataset_main_path, opt.dataset,'latent_caps','saved_train_with_part_label.h5')           
-    out_file_name=ori_file_name+"_resized.h5"
+def ResizeDataset(path, percentage, n_classes, shuffle):
+    #dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
+    ori_file_name=os.path.join(path,'saved_train_with_part_label.h5')           
+    out_file_name=ori_file_name+"_%s_resized.h5"%percentage
     if os.path.exists(out_file_name):
         os.remove(out_file_name)
     fw = h5py.File(out_file_name, 'w', libver='latest')
-    dset = fw.create_dataset("data", (1,opt.latent_caps_size,opt.latent_vec_size,),maxshape=(None,opt.latent_caps_size,opt.latent_vec_size), dtype='<f4')
-    dset_s = fw.create_dataset("part_label",(1,opt.latent_caps_size,),maxshape=(None,opt.latent_caps_size,),dtype='uint8')
+    dset = fw.create_dataset("data", (1,opt.num_points,opt.feature_dims,),maxshape=(None, opt.num_points, opt.feature_dims), dtype='<f4')
+    dset_s = fw.create_dataset("sem_label",(1,opt.num_points,),maxshape=(None,opt.num_points,),dtype='uint8')
     dset_c = fw.create_dataset("cls_label",(1,),maxshape=(None,),dtype='uint8')
     fw.swmr_mode = True   
     f = h5py.File(ori_file_name)
     data = f['data'][:]
-    part_label = f['part_label'][:]
+    part_label = f['seg_label'][:]
     cls_label = f['cls_label'][:]
     
     #data shuffle

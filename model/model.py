@@ -163,15 +163,16 @@ class FoldNet_Encoder(nn.Module):
         return x
 
     def forward(self, pts):
-        pts = pts.transpose(2,1) #(batch_size, 6, num_points)
+        pts = pts.transpose(2,1) #(batch_size, 3, num_points)
         idx = knn(pts, k=self.k)
-        x = local_cov(pts, idx) #(batch_size, 6, num_points) -> (batch_size, 12, num_points)
-        x = self.mlp1(x) #(batch_size, 64, num_points)
-        x = self.graph_layer(x, idx) #(batch_size,1024, num_points)
+        x = local_cov(pts, idx) #(batch_size, 3, num_points) -> (batch_size, 12, num_points)
+        x0 = self.mlp1(x) #(batch_size, 64, num_points)
+        x = self.graph_layer(x0, idx) #(batch_size,1024, num_points)
         x = torch.max(x, 2, keepdim=True)[0] #(batch_size,1024,1)
         x = self.mlp2(x)                     #(batch_size, feat_dims,1)
         feat = x.transpose(2,1)              #(batch_size,1,feat_dims)
-        return feat
+
+        return feat, x0                      #(batch_size,1,feat_dims)  (batch_size, 64, num_points)
 
 
 # ----------------------------------------
@@ -404,14 +405,14 @@ class DGCNN_Seg_Encoder(nn.Module):
         x = self.conv5(x)                       # (batch_size, 64*2, num_points, k) -> (batch_size, 64, num_points, k)
         x3 = x.max(dim=-1, keepdim=False)[0]    # (batch_size, 64, num_points, k) -> (batch_size, 64, num_points)
 
-        x = torch.cat((x1, x2, x3), dim=1)      # (batch_size, 64*3, num_points)
+        x4 = torch.cat((x1, x2, x3), dim=1)      # (batch_size, 64*3, num_points)
 
-        x = self.conv6(x)                       # (batch_size, 64*3, num_points) -> (batch_size, emb_dims, num_points)
+        x = self.conv6(x4)                       # (batch_size, 64*3, num_points) -> (batch_size, emb_dims, num_points)
         x = x.max(dim=-1, keepdim=False)[0]     # (batch_size, emb_dims, num_points) -> (batch_size, emb_dims)
 
         feat = x.unsqueeze(1)                   # (batch_size, num_points) -> (batch_size, 1, emb_dims)
 
-        return feat                             # (batch_size, 1, emb_dims)
+        return feat, x4                             # (batch_size, 1, emb_dims)
 
 
 # ----------------------------------------
@@ -552,9 +553,9 @@ class DGCNN_FoldNet(nn.Module):
         self.loss = ChamferLoss()
 
     def forward(self, input):
-        feature = self.encoder(input)
+        feature, mid_fea = self.encoder(input)
         output = self.decoder(feature)
-        return output, feature
+        return output, feature, mid_fea
 
     def get_parameter(self):
         return list(self.encoder.parameters()) + list(self.decoder.parameters())
