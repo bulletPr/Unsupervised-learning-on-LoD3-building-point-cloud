@@ -27,39 +27,43 @@ import shutil
 import torch
 #import argparse
 import torch.optim as optim
-
+import h5py
 from tensorboardX import SummaryWriter
+
 from model import DGCNN_FoldNet
+from semseg_net import SemSegNet
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
 sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
-#from ArCH import ArchDataset
-from dataloader import get_dataloader
-from shapenet_dataloader import get_shapenet_dataloader
+
+import latent_loader
 
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import is_h5_list, load_seg_list
 from net_utils import Logger
 
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
+sys.path.append(os.path.join(ROOT_DIR, 'utils'))
+from net_utils import Logger
+
 
 def ResizeDataset(path, percentage, n_classes, shuffle):
     #dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
-    ori_file_name=os.path.join(path,'saved_train_with_part_label.h5')           
+    ori_file_name=os.path.join(path,'saved_train_with_sem_label.h5')           
     out_file_name=ori_file_name+"_%s_resized.h5"%percentage
     if os.path.exists(out_file_name):
         os.remove(out_file_name)
     fw = h5py.File(out_file_name, 'w', libver='latest')
     dset = fw.create_dataset("data", (1,opt.num_points,opt.feature_dims,),maxshape=(None, opt.num_points, opt.feature_dims), dtype='<f4')
-    dset_s = fw.create_dataset("sem_label",(1,opt.num_points,),maxshape=(None,opt.num_points,),dtype='uint8')
-    dset_c = fw.create_dataset("cls_label",(1,),maxshape=(None,),dtype='uint8')
+    dset_s = fw.create_dataset("label_seg",(1,opt.num_points,),maxshape=(None,opt.num_points,),dtype='uint8')
+    dset_c = fw.create_dataset("label",(1,),maxshape=(None,),dtype='uint8')
     fw.swmr_mode = True   
     f = h5py.File(ori_file_name)
     data = f['data'][:]
-    part_label = f['seg_label'][:]
-    cls_label = f['cls_label'][:]
+    part_label = f['label_seg'][:]
+    cls_label = f['label'][:]
     
     #data shuffle
     if shuffle:        
@@ -99,71 +103,127 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
     print ('class distribution of resized dataset :',class_dist_new)
     fw.close
     
-    
+def load_pretrain(model, pretrain):
+        state_dict = torch.load(pretrain, map_location='cpu')
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            new_state_dict[name] = val
+        model.load_state_dict(new_state_dict)
+        print(f"Load model from {pretrain}")  
+
+def _snapshot(save_dir, model, epoch):
+    state_dict = model.state_dict()
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+    for key, val in state_dict.items():
+        if key[:6] == 'module':
+            name = key[7:]  # remove 'module.'
+        else:
+            name = key
+        new_state_dict[name] = val
+    save_dir = os.path.join(save_dir, opt.dataset)
+    torch.save(new_state_dict, save_dir + "_" + str(epoch) + '.pkl')
+    print(f"Save model to {save_dir}_{str(epoch)}.pkl")
 
 def main():
     blue = lambda x:'\033[94m' + x + '\033[0m'
-    
-#generate part label one-hot correspondence from the catagory:
-    dataset_main_path=os.path.abspath(os.path.join(BASE_DIR, '../../dataset'))
-    oid2cpid_file_name=os.path.join(dataset_main_path, opt.dataset,'shapenetcore_partanno_segmentation_benchmark_v0/shapenet_part_overallid_to_catid_partid.json')        
-    oid2cpid = json.load(open(oid2cpid_file_name, 'r'))   
-    object2setofoid = {}
-    for idx in range(len(oid2cpid)):
-        objid, pid = oid2cpid[idx]
-        if not objid in object2setofoid.keys():
-            object2setofoid[objid] = []
-        object2setofoid[objid].append(idx)
-    
-    all_obj_cat_file = os.path.join(dataset_main_path, opt.dataset, 'shapenetcore_partanno_segmentation_benchmark_v0/synsetoffset2category.txt')
-    fin = open(all_obj_cat_file, 'r')
-    lines = [line.rstrip() for line in fin.readlines()]
-    objcats = [line.split()[1] for line in lines]
-    objnames = [line.split()[0] for line in lines]
-    on2oid = {objcats[i]:i for i in range(len(objcats))}
-    fin.close()
 
 
-# load the dataset
+    experiment_id = 'semantic_segmentation_'+ 'opt.dataset'+'_1024'
+    
+    snapshot_root = 'snapshot/%s' %self.experiment_id
+    tensorboard_root = 'tensorboard/%s' %self.experiment_id
+    save_dir = os.path.join(ROOT_DIR, snapshot_root, 'models/')
+    tboard_dir = os.path.join(ROOT_DIR, tensorboard_root)
+
+    
+    #create folder to save trained models
+    if opt.model == '':
+        if not os.path.exists(self.save_dir):
+            os.makedirs(self.save_dir)
+        else:
+            choose = input("Remove " + self.save_dir + " ? (y/n)")
+            if choose == 'y':
+                shutil.rmtree(self.save_dir)
+                os.makedirs(self.save_dir)
+            else:
+                sys.exit(0)
+        if not os.path.exists(self.tboard_dir):
+            os.makedirs(self.tboard_dir)
+        else:
+            shutil.rmtree(self.tboard_dir)
+            os.makedirs(self.tboard_dir)
+    sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'sem_seg_network_log.txt'))
+    writer = SummaryWriter(log_dir = tboard_dir)
+
+    #generate part label one-hot correspondence from the catagory:
+    if opt.dataset == 's3dis':
+        classes = ['ceiling','floor','wall','beam','column','window','door','table','chair','sofa','bookcase','board','clutter']
+        class2label = {cls: i for i,cls in enumerate(classes)}
+        seg_classes = class2label
+        seg_label_to_cat = {}
+        for i,cat in enumerate(seg_classes.keys()):
+            seg_label_to_cat[i] = cat
+    elif opt.dataset == 'arch':
+        classes = ['ceiling','floor','wall','beam','column','window','door','table','chair','sofa','bookcase','board','clutter']
+        class2label = {cls: i for i,cls in enumerate(classes)}
+        seg_classes = class2label
+        seg_label_to_cat = {}
+        for i,cat in enumerate(seg_classes.keys()):
+            seg_label_to_cat[i] = cat
+
+    # load the dataset
+    print('-Preparing dataset...')
     data_resized=False
     if(opt.percent_training_dataset<100):            
-        ResizeDataset( percentage=opt.percent_training_dataset, n_classes=16,shuffle=True)
+        ResizeDataset( percentage=opt.percent_training_dataset, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
    
-    train_dataset =  saved_latent_caps_loader.Saved_latent_caps_loader(
+    train_dataset =  latent_loader.Saved_latent_caps_loader(
             dataset=opt.dataset, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=True, train=True,resized=data_resized)
-    test_dataset =  saved_latent_caps_loader.Saved_latent_caps_loader(
+    test_dataset =  latent_loader.Saved_latent_caps_loader(
             dataset=opt.dataset, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=False, train=False,resized=False)
 
 
-#  load the SemiConvSegNet
-    caps_seg_net = CapsSegNet(latent_caps_size=opt.latent_caps_size, latent_vec_size=opt.latent_vec_size , num_classes=opt.n_classes)    
-#    if opt.part_model != '':
-#        caps_seg_net.load_state_dict(torch.load(opt.part_model))            
+    #initial model
+    sem_seg_net = SemSegNet(num_classes=opt.n_classes, with_rgb=False)
+    #load pretrained model
+    if opt.model != '':
+        sem_seg_net.load_pretrain(sem_seg_net, opt.model)            
+    # load model to gpu
     if USE_CUDA:
-        caps_seg_net = torch.nn.DataParallel(caps_seg_net).cuda()       
-    optimizer = optim.Adam(caps_seg_net.parameters(), lr=0.01)
+        sem_seg_net = sem_seg_net.cuda()       
+    # initialize optimizer
+    optimizer = optim.Adam(sem_seg_net.parameters(), lr=0.01) 
     
-    #create folder to save trained models
-    if not os.path.exists(opt.outf):
-        os.makedirs(opt.outf);
+
 # start training
     n_batch = 0
-    for epoch in range(opt.n_epochs):
+    # start epoch index
+    if self.model_path != '':
+        start_epoch = self.model_path[-7:-4]
+        if start_epoch[0] == '_':
+            start_epoch = start_epoch[1:]
+        start_epoch=int(start_epoch)
+    else:
+        start_epoch = 0
+    
+    print('training start!!!')
+    start_time = time.time()
+    loss = []
+    best_loss=0
+    for epoch in range(start_epoch, opt.n_epochs):
         batch_id = 0
-        caps_seg_net=caps_seg_net.train()
+        sem_seg_net=sem_seg_net.train()
         while train_dataset.has_next_batch():
-            latent_caps_, part_label,cls_label = train_dataset.next_batch()            
+            latent_caps_, seg_label, cls_label = train_dataset.next_batch()            
             
-            # translate the part label to one hot
-            cur_label_one_hot = np.zeros((len(latent_caps_), 16), dtype=np.float32) # shapnet part has 16 catagories
-            for i in range(len(latent_caps_)):
-                cur_label_one_hot[i, cls_label[i]] = 1
-                iou_oids = object2setofoid[objcats[cls_label[i]]]
-                for j in range(opt.latent_caps_size):
-                    part_label[i,j]=iou_oids[part_label[i,j]]
-            target = torch.from_numpy(part_label.astype(np.int64))
-
+            target = torch.from_numpy(seg_label.astype(np.int64))
             
             # concatnate the latent caps with the one hot part label
             latent_caps = torch.from_numpy(latent_caps_).float()
@@ -171,25 +231,20 @@ def main():
                 continue
             latent_caps, target = Variable(latent_caps), Variable(target)
             if USE_CUDA:
-                latent_caps,target = latent_caps.cuda(), target.cuda()                        
-            cur_label_one_hot=torch.from_numpy(cur_label_one_hot).float()        
-            expand =cur_label_one_hot.unsqueeze(2).expand(len(latent_caps),16,opt.latent_caps_size).transpose(1,2)  
-            expand=Variable(expand).cuda()
-            latent_caps=torch.cat((latent_caps,expand),2)
-    
+                latent_caps,target = latent_caps.cuda(), target.cuda()                            
     
 # forward
             optimizer.zero_grad()
             latent_caps=latent_caps.transpose(2, 1)# consider the capsule vector size as the channel in the network
-            output_digit=caps_seg_net(latent_caps)
+            output_digit, _ =sem_seg_net(latent_caps)
             output_digit = output_digit.view(-1, opt.n_classes)        
-     
+            #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
     
             target= target.view(-1,1)[:,0] 
             train_loss = F.nll_loss(output_digit, target)
             train_loss.backward()
             optimizer.step()
-    #        print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
+            #print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
            
             pred_choice = output_digit.data.cpu().max(1)[1]
             correct = pred_choice.eq(target.data.cpu()).cpu().sum()
@@ -197,21 +252,21 @@ def main():
             batch_id+=1
             n_batch=max(batch_id,n_batch)
             print('[%d: %d/%d] %s loss: %f accuracy: %f' %(epoch, batch_id, n_batch, blue('test'), train_loss.item(), correct.item()/float(opt.batch_size * opt.latent_caps_size)))
-         
-            
-        if epoch % 10 == 0:    
-            caps_seg_net=caps_seg_net.eval()    
+            # save tensorboard
+            total_time = time.time()-start_time 
+            print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time),
+                                                                        epoch, total_time)
+            loss.append(train_loss)
+            writer.add_scalar('Train Loss', loss[-1], epoch)
+        
+        if epoch % 5 == 0:    
+            sem_seg_net=sem_seg_net.eval()    
             correct_sum=0
             batch_id=0
             while test_dataset.has_next_batch():
-                latent_caps, part_label,cls_label = test_dataset.next_batch()
-                cur_label_one_hot = np.zeros((len(latent_caps), 16), dtype=np.float32)
-                for i in range(len(latent_caps)):
-                    cur_label_one_hot[i, cls_label[i]] = 1
-                    iou_oids = object2setofoid[objcats[cls_label[i]]]
-                    for j in range(opt.latent_caps_size):
-                        part_label[i,j]=iou_oids[part_label[i,j]]
-                target = torch.from_numpy(part_label.astype(np.int64))
+                latent_caps, seg_label,cls_label = test_dataset.next_batch()
+
+                target = torch.from_numpy(seg_label.astype(np.int64))
         
                 latent_caps = torch.from_numpy(latent_caps).float()
                 if(latent_caps.size(0)<opt.batch_size):
@@ -220,14 +275,8 @@ def main():
                 if USE_CUDA:
                     latent_caps,target = latent_caps.cuda(), target.cuda()
                 
-                cur_label_one_hot=torch.from_numpy(cur_label_one_hot).float()        
-                expand =cur_label_one_hot.unsqueeze(2).expand(len(latent_caps),16,opt.latent_caps_size).transpose(1,2)        
-                expand=Variable(expand).cuda()
-                latent_caps=torch.cat((latent_caps,expand),2)
-                
-                
-                latent_caps=latent_caps.transpose(2, 1)        
-                output=caps_seg_net(latent_caps)
+                latent_caps=latent_caps.transpose(2, 1)
+                output=sem_seg_net(latent_caps)
                 output = output.view(-1, opt.n_classes)        
                 target= target.view(-1,1)[:,0] 
         
@@ -237,10 +286,16 @@ def main():
                 correct = pred_choice.eq(target.data.cpu()).cpu().sum()                
                 correct_sum=correct_sum+correct.item()
                 batch_id+=1
-                
-            print(' accuracy of epoch %d is: %f' %(epoch,correct_sum/float((batch_id+1)*opt.batch_size * opt.latent_caps_size)))
-            dict_name=opt.outf+'/'+ str(opt.latent_caps_size)+'caps_'+str(opt.latent_caps_size)+'vec_'+ str(opt.percent_training_dataset) + '% of_training_data_at_epoch'+str(epoch)+'.pth'
-            torch.save(caps_seg_net.module.state_dict(), dict_name)
+            
+            _snapshot(sem_seg_net, epoch + 1)
+            if loss < best_loss:
+                best_loss = loss
+                snapshot(sem_seg_net, 'best')
+
+            print(' accuracy of epoch %d is: %f' %(epoch,correct_sum/float((batch_id+1)*opt.batch_size * opt.num_points)))
+            
+            dict_name=opt.outf+'/'+ str(opt.latent_caps_size)+'caps_'+str(opt.num_points)+'vec_'+ str(opt.percent_training_dataset) + '% of_training_data_at_epoch'+str(epoch)+'.pth'
+            torch.save(sem_seg_net.module.state_dict(), dict_name)
              
         train_dataset.reset()
         test_dataset.reset()
@@ -268,8 +323,3 @@ if __name__ == "__main__":
 
     USE_CUDA = True
     main()
-# ----------------------------------------
-# Trainer class
-# ----------------------------------------
-
-class Train_Part(object):

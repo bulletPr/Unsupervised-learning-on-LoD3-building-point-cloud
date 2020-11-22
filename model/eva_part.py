@@ -14,8 +14,8 @@ sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../../dataloaders')))
 import shapenet_part_loader
 import matplotlib.pyplot as plt
 
-from pointcapsnet_ae import PointCapsNet
-from capsule_seg_net import CapsSegNet
+from model import DGCNN_FoldNet
+from partseg_net import PartSegNet
 
 #import h5py
 from sklearn.svm import LinearSVC
@@ -23,6 +23,19 @@ import json
 
 
 from open3d import *
+def load_pretrain(model, pretrain):
+        state_dict = torch.load(pretrain, map_location='cpu')
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            new_state_dict[name] = val
+        model.load_state_dict(new_state_dict)
+        print(f"Load model from {pretrain}") 
+
 
 def main():
     blue = lambda x:'\033[94m' + x + '\033[0m'
@@ -53,22 +66,22 @@ def main():
     colors = plt.cm.tab10((np.arange(10)).astype(int))
     blue = lambda x:'\033[94m' + x + '\033[0m'
 
-# load the model for point cpas auto encoder    
-    capsule_net = PointCapsNet(opt.prim_caps_size, opt.prim_vec_size, opt.latent_caps_size, opt.latent_vec_size, opt.num_points,)
+# load the model for point auto encoder    
+    ae_net = DGCNN_FoldNet(opt)
     if opt.model != '':
-        capsule_net.load_state_dict(torch.load(opt.model))
+        ae_net = load_pretrain(ae_net, opt.model)
     if USE_CUDA:
-        capsule_net = torch.nn.DataParallel(capsule_net).cuda()
-    capsule_net=capsule_net.eval()
+        ae_net = ae_net.cuda()
+    ae_net=ae_net.eval()
  
     
 # load the model for capsule wised part segmentation      
-    caps_seg_net = CapsSegNet(latent_caps_size=opt.latent_caps_size, latent_vec_size=opt.latent_vec_size , num_classes=opt.n_classes)    
-    if opt.part_model != '':
-        caps_seg_net.load_state_dict(torch.load(opt.part_model))
+    part_seg_net = PartSegNet(num_classes=opt.n_classes, with_rgb=False)    
+    if opt.seg_model != '':
+        part_seg_net.load_pretrain(part_seg_net, opt.model)
     if USE_CUDA:
-        caps_seg_net = caps_seg_net.cuda()
-    caps_seg_net = caps_seg_net.eval()    
+        part_seg_net = part_seg_net.cuda()
+    part_seg_net = part_seg_net.eval()    
     
 
     train_dataset = shapenet_part_loader.PartDataset(classification=False, class_choice=opt.class_choice, npoints=opt.num_points, split='test')
@@ -97,29 +110,21 @@ def main():
         
         # use the pre-trained AE to encode the point cloud into latent capsules
         points_ = Variable(points)
-        points_ = points_.transpose(2, 1)
+        #points_ = points_.transpose(2, 1)
         if USE_CUDA:
             points_ = points_.cuda()
-        latent_caps, reconstructions= capsule_net(points_)
-        reconstructions=reconstructions.transpose(1,2).data.cpu()
+        reconstructions, latent_caps, _ = ae_net(points_)
+        reconstructions=reconstructions.data.cpu()
         
-        
+        rep_code = code.view(-1,opt.latent_vec_size,1).repeat(1,1,opt.num_points)
+        con_code = torch.cat([rep_code, mid_features],1)
+
+        latent_caps=con_code.cpu().detach().numpy()
         #concatanete the latent caps with one-hot part label
-        cur_label_one_hot = np.zeros((opt.batch_size, 16), dtype=np.float32)
-        for i in range(opt.batch_size):
-            cur_label_one_hot[i, cls_label[i]] = 1
-            iou_oids = object2setofoid[objcats[cls_label[i]]]
-            for j in range(opt.num_points):
-                part_label[i,j]=iou_oids[part_label[i,j]]
-        cur_label_one_hot=torch.from_numpy(cur_label_one_hot).float()        
-        expand =cur_label_one_hot.unsqueeze(2).expand(opt.batch_size, 16, opt.latent_caps_size).transpose(1,2)
-        expand,latent_caps=Variable(expand),Variable(latent_caps)
-        expand,latent_caps=expand.cuda(),latent_caps.cuda()
-        latent_caps=torch.cat((latent_caps,expand),2)
       
         # predict the part class per capsule
         latent_caps=latent_caps.transpose(2, 1)
-        output=caps_seg_net(latent_caps)        
+        output=part_seg_net(latent_caps)        
         for i in range (opt.batch_size):
             iou_oids = object2setofoid[objcats[cls_label[i]]]
             non_cat_labels = list(set(np.arange(50)).difference(set(iou_oids))) # there are 50 part classes in all the 16 catgories of objects
@@ -130,9 +135,9 @@ def main():
         # assign predicted the capsule part label to its reconstructed point patch
         reconstructions_part_label=torch.zeros([opt.batch_size,opt.num_points],dtype=torch.int64)
         for i in range(opt.batch_size):
-            for j in range(opt.latent_caps_size):
-                for m in range(int(opt.num_points/opt.latent_caps_size)):
-                    reconstructions_part_label[i,opt.latent_caps_size*m+j]=pred_choice[i,j]
+            for j in range(opt.num_points):
+                for m in range(int(opt.num_points/opt.num_points)):
+                    reconstructions_part_label[i,opt.num_points*m+j]=pred_choice[i,j]
 
         
         # assign the part label from the reconstructed point cloud to the input point set with NN

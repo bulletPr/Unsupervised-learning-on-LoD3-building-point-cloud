@@ -84,7 +84,7 @@ def main():
         NUM_CLASSES = 13
         NUM_POINT = opt.num_points
         BATCH_SIZE = opt.batch_size
-        dataset = S3DISDataset(split=split, data_root=root, num_point=NUM_POINT, test_area=5, block_size=1.0, sample_rate=1.0, transform=None)
+        dataset = S3DISDataset(split=split, data_root=root, num_point=NUM_POINT, rgb=False, test_area=5, block_size=1.0, sample_rate=1.0, transform=None)
         log_string("start loading test data ...")
         dataLoader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True, worker_init_fn = lambda x: np.random.seed(x+int(time.time())))
         log_string("classifer set size: " + dataloader.dataset.__len__())
