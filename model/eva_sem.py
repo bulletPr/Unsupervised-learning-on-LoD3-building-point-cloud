@@ -33,7 +33,6 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../../models')))
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../../dataloaders')))
 import shapenet_part_loader
-import matplotlib.pyplot as plt
 
 from model import DGCNN_FoldNet
 from semseg_net import SemSegNet
@@ -146,7 +145,7 @@ def main():
         
         # use the pre-trained AE to encode the point cloud into latent capsules
         points_ = Variable(points)
-        points_ = points_.transpose(2, 1)
+        #points_ = points_.transpose(2, 1)
         if USE_CUDA:
             points_ = points_.cuda()
 
