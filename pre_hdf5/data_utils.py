@@ -8,7 +8,6 @@ import plyfile
 import numpy as np
 from matplotlib import cm
 
-
 def save_ply(points, filename, colors=None, normals=None):
     vertex = np.core.records.fromarrays(points.transpose(), names='x, y, z', formats='f4, f4, f4')
     n = len(vertex)
@@ -104,3 +103,9 @@ def save_ply_point_with_normal(data_sample, folder):
     for idx, sample in enumerate(data_sample):
         filename_pts = os.path.join(folder, '{:08d}.ply'.format(idx))
         save_ply(sample[..., :3], filename_pts, normals=sample[..., 3:])
+        
+def load_h5_seg(h5_filename):
+    f = h5py.File(h5_filename, 'r')
+    data = f['data'][...].astype(np.float32)
+    label = f['label_seg'][...].astype(np.int64)
+    return data, label

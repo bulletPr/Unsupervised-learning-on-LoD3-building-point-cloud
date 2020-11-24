@@ -19,41 +19,48 @@ import os
 import numpy as np
 import sys
 import random
+import argparse
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 import pc_utils
+
 import common
 
+parse = argparse.ArgumentParser()
+parse.add_argument('--split_file', default='')
+parse.add_argument('--block_size', default=1.0)
+parse.add_argument('--stride', default=0.5)
+parse.add_argument('--split', default='train')
+parse.add_argument('--data_dir', default='data/arch')
+args = parse.parse_args()
+
 # Constants
-data_dir = os.path.join(ROOT_DIR, 'data')
-arch_data_dir = os.path.join(data_dir, 'arch', 'train')
-NUM_POINT = 8192
+NUM_POINT = 4096
 H5_BATCH_SIZE = 1000
 data_dim = [NUM_POINT, 6]
 label_dim = [NUM_POINT]
 data_dtype = np.float32
 label_dtype = np.int8
 
-path_txt_all = []
-path_txt_all = os.listdir(arch_data_dir)
+if args.split_file == '':
+    output_dir = os.path.join(ROOT_DIR, args.data_dir, 'arch_{}m_{}s_pointnet_hdf5_data_{}'.format(args.block_size, args.stride, args.split))
+else:
+    output_dir = os.path.join(args.data_dir, 'arch_{}{}m_{}s_pointnet_hdf5_data_{}'.format(args.split_file[0:2],args.block_size, args.stride, args.split))
 
-
-output_dir = os.path.join(data_dir, 'arch_hdf5_data', 'train1')
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
 output_filename_prefix = os.path.join(output_dir, 'h5_data_all')
-
 
 # --------------------------------------
 #           BATCH WRITE TO HDF5
 # --------------------------------------
 
-batch_data_dim = [H5_BATCH_SIZE] + data_dim #[1000, 2048, 9]
-batch_label_dim = [H5_BATCH_SIZE] + label_dim #[1000, 2048]
-h5_batch_data = np.zeros(batch_data_dim, dtype = np.float32) #(1000, 2048, 9)
-h5_batch_label = np.zeros(batch_label_dim, dtype = np.uint8) #(1000, 2048)
+batch_data_dim = [H5_BATCH_SIZE] + data_dim #[1000, 4096, 6]
+batch_label_dim = [H5_BATCH_SIZE] + label_dim #[1000, 4096]
+h5_batch_data = np.zeros(batch_data_dim, dtype = np.float32) #(1000, 4096, 6)
+h5_batch_label = np.zeros(batch_label_dim, dtype = np.uint8) #(1000, 4096)
 buffer_size = 0  # state: record how many samples are currently in buffer
 h5_index = 0 # state: the next h5 file to save
 
@@ -92,37 +99,32 @@ def insert_batch(data, label, last_batch=False):
     return
 
 
-LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','savetoh5log.txt'), 'a')
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','save_h5_pointnet_log.txt'), 'a')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()
     print(out_str)
 
-if __name__ == '__main__':
-    sample_cnt = 0
-    root = '../data/arch/'
-    splits = ['train', 'test']
-    split_filelists = dict()
-    for split in splits:
-        split_filelists[split] = ['%s/%s\n' % (split, filename) for filename in os.listdir(os.path.join(root, split))
-                                  if filename.endswith('.h5')]
-    train_h5 = split_filelists['train']
-    random.shuffle(train_h5)
-    
-    sampling_strategy = 'random'
-    
-    for i in range(len(train_h5)):
-        filepath = os.path.join(root, train_h5[i].strip())
-        log_string("input file: " + filepath)
-        data, labels = pc_utils.load_h5(filepath)
-        print('{0}, {1}'.format(data.shape, labels.shape))
-        log_string("output file size: " + str(data.shape) + ', ' + str(labels.shape))
-        
-        log_string("Sampling data now")
 
-        sample_cnt += data.shape[0]
-        log_string("sample number now: {0}".format(sample_cnt)+"now insert_batch")
-        insert_batch(data, labels, i == len(path_txt_all)-1)
-        log_string("finish {0} times".format(i))
+sample_cnt = 0
 
-    print("Total samples: {0}".format(sample_cnt))
+split_filelists = dict()
+if args.split_file == '':
+    split_filelists[args.split] = ['%s/%s\n' % (args.split, filename) for filename in os.listdir(os.path.join(args.data_dir, args.split))]
+else:
+    split_filelists[args.split] = [os.path.join(args.split,args.split_file)]
+    print(split_filelists[args.split][0])
+    
+    
+for i in range(len(split_filelists[args.split])):
+    filepath = os.path.join(ROOT_DIR, args.data_dir, split_filelists[args.split][i])
+    log_string("input file: " + filepath)
+    data, labels = common.scene2blocks_wrapper(filepath,NUM_POINT, block_size=args.block_size, stride=args.stride, random_sample=False, sample_num=None)
+    log_string("output file size: " + str(data.shape) + ', ' + str(labels.shape))
+
+    sample_cnt += data.shape[0]
+    log_string("sample number now: {0}".format(sample_cnt)+"now insert_batch")
+    insert_batch(data, labels, i == len(split_filelists[args.split])-1)
+    log_string("finish {0} times".format(i))
+
+print("Total test samples: {0}".format(sample_cnt))

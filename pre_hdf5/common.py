@@ -36,7 +36,7 @@ LOG_PATH = os.path.join(ROOT_DIR, 'LOG')
 # -----------------------------------------------------------------------------
 
 if not os.path.exists(LOG_PATH): os.mkdir(LOG_PATH)
-LOG_FOUT = open(os.path.join(LOG_PATH, 'log_blocks.txt'), 'w')
+LOG_FOUT = open(os.path.join(LOG_PATH, 'pointnet_log_blocks.txt'), 'a')
 def log_string(out_str):
     LOG_FOUT.write(out_str+'\n')
     LOG_FOUT.flush()
@@ -72,7 +72,7 @@ def sample_data_label(data, label, num_sample):
 # -----------------------------------------------------------------------------
 # Split scene into blocks
 # -----------------------------------------------------------------------------
-def scenetoblocks(data, label, num_point, block_size=1.0, stride=1.0, sampling=False,
+def scene2blocks(data, label, num_point, block_size=1.0, stride=1.0, random_sample=False,
         sample_num=None, sample_aug=1):
     """
     Prepare block training data.
@@ -99,7 +99,7 @@ def scenetoblocks(data, label, num_point, block_size=1.0, stride=1.0, sampling=F
     #calculate number of blocks and add into block list
     xbeg_list = []
     ybeg_list = []
-    if not sampling:
+    if not random_sample:
         num_block_x = int(np.ceil((limit[0] - block_size) / stride)) + 1
         num_block_y = int(np.ceil((limit[1] - block_size) / stride)) + 1
         for i in range(num_block_x):
@@ -143,25 +143,25 @@ def scenetoblocks(data, label, num_point, block_size=1.0, stride=1.0, sampling=F
     return np.concatenate(block_data_list, 0), \
            np.concatenate(block_label_list, 0)
 
-def scenetoblocks_plus(data_label, num_point, block_size, stride,
-                     sampling, sample_num, sample_aug):
+def scene2blocks_plus(data_label, num_point, block_size, stride,
+                     random_sample, sample_num, sample_aug):
     """ room2block wit RGB preprocessing.
     """
     data = data_label[:,0:6]
     data[:,3:6] /= 255.0
     label = data_label[:,-1].astype(np.uint8)
 
-    return scenetoblocks(data, label, num_point, block_size, stride,
-                       sampling, sample_num, sample_aug)
+    return scene2blocks(data, label, num_point, block_size, stride,
+                       random_sample, sample_num, sample_aug)
 
-def scenetoblocks_wrapper(data_label_filename, num_point, block_size=1.0, stride=1.0,
-                        sampling=False, sample_num=None, sample_aug=1):
+def scene2blocks_wrapper(data_label_filename, num_point, block_size=1.0, stride=1.0,
+                        random_sample=False, sample_num=None, sample_aug=1):
     data_label = np.loadtxt(data_label_filename)
     data_label = data_label[:,0:7]
     log_string("input scene: " + data_label_filename + " and shape: " + str(data_label.shape))
 
-    return scenetoblocks_plus(data_label, num_point, block_size, stride,
-                            sampling, sample_num, sample_aug)
+    return scene2blocks_plus(data_label, num_point, block_size, stride,
+                            random_sample, sample_num, sample_aug)
 
 def scenetoblocks_plus_normalized(data_label, num_point, block_size, stride,
                                 sampling, sample_num, sample_aug):

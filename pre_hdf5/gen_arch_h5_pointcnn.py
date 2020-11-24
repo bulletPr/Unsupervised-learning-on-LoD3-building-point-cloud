@@ -29,9 +29,12 @@ import h5py
 import argparse
 import numpy as np
 from datetime import datetime
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+sys.path.append(BASE_DIR)
 
 import data_utils
-
+import common
 
 def main():
     parser = argparse.ArgumentParser()
@@ -40,11 +43,12 @@ def main():
     parser.add_argument('--block_size', '-b', help='Block size', type=float, default=1.5)
     parser.add_argument('--grid_size', '-g', help='Grid size', type=float, default=0.03)
     parser.add_argument('--save_ply', '-s', help='Convert .pts to .ply', action='store_true')
+    parser.add_argument('--random_sample', '-r', action='store_true')
 
     args = parser.parse_args()
     print(args)
 
-    root = args.folder if args.folder else '../data/arch'
+    root = args.folder if args.folder else os.path.join(ROOT_DIR, 'data', 'arch')
     max_point_num = args.max_point_num
 
     batch_size = 2048
@@ -57,7 +61,7 @@ def main():
     if args.save_ply:
         data_center = np.zeros((batch_size, max_point_num, 3))
     datasets=[]
-    folders = [os.path.join(root, folder) for folder in ['test1', 'train']]
+    folders = [os.path.join(root, folder) for folder in ['test', 'train_scene7']]
     for folder in folders:
         datasets = os.listdir(folder)
         for dataset_idx, dataset in enumerate(datasets):
@@ -187,9 +191,9 @@ def main():
                         if ((idx + 1) % batch_size == 0) or \
                                 (block_idx == idx_last_non_empty_block and block_split_idx == block_split_num - 1):
                             item_num = idx_in_batch + 1
-                            filename_h5 = os.path.join(folder, dataset + '_2048_%s_%d.h5' % (offset_name, idx_h5))
+                            filename_h5 = os.path.join(folder, dataset + '_8196_%s_%d.h5' % (offset_name, idx_h5))
                             print('{}-Saving {}...'.format(datetime.now(), filename_h5))
-
+                            
                             file = h5py.File(filename_h5, 'w')
                             file.create_dataset('data', data=data[0:item_num, ...])
                             file.create_dataset('data_num', data=data_num[0:item_num, ...])
@@ -197,6 +201,17 @@ def main():
                             file.create_dataset('label_seg', data=label_seg[0:item_num, ...])
                             file.create_dataset('indices_split_to_full', data=indices_split_to_full[0:item_num, ...])
                             file.close()
+                            
+                            if args.random_sample:
+                                data, label_seg = data_utils.load_h5_seg(filename_h5)
+                                assert(data.shape[1] == label_seg.shape[1])
+                                N = data.shape[1]
+                                sample = np.random.choice(N, 4096)
+                                sampled_filename = filename_h5 = os.path.join(folder, dataset + '_8196_%s_%d_sampled.h5' % (offset_name, idx_h5))
+                                file = h5py.File(sampled_filename, 'w')
+                                file.create_dataset('data', data=data[0:item_num, sample, :])
+                                file.create_dataset('label_seg', data=label_seg[0:item_num, sample, :])
+                                file.close()
 
                             if args.save_ply:
                                 print('{}-Saving ply of {}...'.format(datetime.now(), filename_h5))
