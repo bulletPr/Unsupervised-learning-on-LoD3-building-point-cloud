@@ -236,7 +236,7 @@ def main():
 # forward
             optimizer.zero_grad()
             latent_caps=latent_caps.transpose(2, 1)# consider the capsule vector size as the channel in the network
-            output_digit, _ =sem_seg_net(latent_caps)
+            output_digit =sem_seg_net(latent_caps)
             output_digit = output_digit.view(-1, opt.n_classes)        
             #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
     

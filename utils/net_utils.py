@@ -30,7 +30,7 @@ class Logger(object):
         self.console = sys.stdout
         self.file = None
         if fpath is not None:
-            self.file = open(fpath, 'w')
+            self.file = open(fpath, 'a')
 
     def __del__(self):
         self.close()

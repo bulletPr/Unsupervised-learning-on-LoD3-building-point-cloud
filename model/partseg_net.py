@@ -56,7 +56,7 @@ class PartSegNet(nn.Module):
         x = x.transpose(2, 1).contiguous()
         x = F.log_softmax(x.view(-1, self.num_classes), dim=-1)
         x = x.view(batchsize, self.n_pts, self.num_classes)
-        return 
+        return x
 
     
 if __name__ == '__main__':

@@ -30,15 +30,15 @@ import os
 import numpy as np
 import statistics
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../../models')))
-sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../../dataloaders')))
-import shapenet_part_loader
+sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../models')))
+sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
+import s3dis_loader
+import dataloader
 
 from model import DGCNN_FoldNet
 from semseg_net import SemSegNet
 
 #import h5py
-from sklearn.svm import LinearSVC
 import json
 
 
@@ -120,18 +120,15 @@ def main():
         dataloader = get_dataloader(filelist=filelist, batch_size=opt.batch_size, 
                                                 num_workers=4, group_shuffle=False,shuffle=True)
         log_string("classifer set size: " + dataloader.dataset.__len__())
-     
 
+    #pcd_colored = PointCloud()                   
+    #pcd_ori_colored = PointCloud()        
+    #rotation_angle=-np.pi/4
+    #cosval = np.cos(rotation_angle)
+    #sinval = np.sin(rotation_angle)           
+    #flip_transforms  = [[cosval, 0, sinval,-1],[0, 1, 0,0],[-sinval, 0, cosval,0],[0, 0, 0, 1]]
+    #flip_transformt  = [[cosval, 0, sinval,1],[0, 1, 0,0],[-sinval, 0, cosval,0],[0, 0, 0, 1]]
 
-    pcd_colored = PointCloud()                   
-    pcd_ori_colored = PointCloud()        
-    rotation_angle=-np.pi/4
-    cosval = np.cos(rotation_angle)
-    sinval = np.sin(rotation_angle)           
-    flip_transforms  = [[cosval, 0, sinval,-1],[0, 1, 0,0],[-sinval, 0, cosval,0],[0, 0, 0, 1]]
-    flip_transformt  = [[cosval, 0, sinval,1],[0, 1, 0,0],[-sinval, 0, cosval,0],[0, 0, 0, 1]]
-    
-    
     correct_sum=0
     for batch_id, data in enumerate(train_dataloader):
 
@@ -141,15 +138,14 @@ def main():
     
         if(points.size(0)<opt.batch_size):
             break
-        
-        
+
         # use the pre-trained AE to encode the point cloud into latent capsules
         points_ = Variable(points)
         #points_ = points_.transpose(2, 1)
         if USE_CUDA:
             points_ = points_.cuda()
 
-        reconstructions, latent_caps, _ = ae_net(points_)
+        reconstructions, latent_caps, mid_features = ae_net(points_)
         reconstructions=reconstructions.data.cpu()
         
         rep_code = code.view(-1,opt.latent_vec_size,1).repeat(1,1,opt.num_points)
@@ -159,7 +155,7 @@ def main():
         target = torch.from_numpy(seg_label.astype(np.int64))
         # predict the part class per capsule
         latent_caps=latent_caps.transpose(2, 1)
-        output,_=SemSegNet(latent_caps)        
+        output =SemSegNet(latent_caps)        
         output_digit = output_digit.view(-1, opt.n_classes)        
         #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
     

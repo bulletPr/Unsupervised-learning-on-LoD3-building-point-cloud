@@ -89,7 +89,7 @@ class ArchDataset(Dataset):
         return self.data.shape[0]
 
 
-LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'w')
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'a')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()

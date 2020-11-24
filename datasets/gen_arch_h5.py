@@ -24,6 +24,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 import pc_utils
+import common
 
 # Constants
 data_dir = os.path.join(ROOT_DIR, 'data')
@@ -91,7 +92,7 @@ def insert_batch(data, label, last_batch=False):
     return
 
 
-LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','savetoh5log.txt'), 'w')
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','savetoh5log.txt'), 'a')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()

@@ -1,3 +1,24 @@
+#
+#
+#      0=================================0
+#      |    Project Name                 |
+#      0=================================0
+#
+#
+# ----------------------------------------------------------------------------------------------------------------------
+#
+#      Implements: save output latent features to .h5 files to train semantic segmentation network
+#
+# ----------------------------------------------------------------------------------------------------------------------
+#
+#      YUWEI CAO - 2020/11/24 9:29 AM 
+#
+#
+
+
+# ----------------------------------------
+# import packages
+# ----------------------------------------
 import argparse
 import torch
 import torch.nn.parallel
@@ -9,16 +30,15 @@ import os
 import numpy as np
 import statistics
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../../models')))
-sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../../dataloaders')))
-import shapenet_part_loader
+sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../models')))
+sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
+import shapenetpart_loader
 import matplotlib.pyplot as plt
 
 from model import DGCNN_FoldNet
 from partseg_net import PartSegNet
 
 #import h5py
-from sklearn.svm import LinearSVC
 import json
 
 
@@ -44,7 +64,7 @@ def main():
             'Mug': 11, 'Pistol': 12, 'Rocket': 13, 'Skateboard': 14, 'Table': 15}    
     
 #generate part label one-hot correspondence from the catagory:
-    dataset_main_path=os.path.abspath(os.path.join(BASE_DIR, '../../dataset'))
+    dataset_main_path=os.path.abspath(os.path.join(BASE_DIR, '../data'))
     oid2cpid_file_name=os.path.join(dataset_main_path, opt.dataset,'shapenetcore_partanno_segmentation_benchmark_v0/shapenet_part_overallid_to_catid_partid.json')        
     oid2cpid = json.load(open(oid2cpid_file_name, 'r'))   
     object2setofoid = {}
