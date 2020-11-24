@@ -1,4 +1,3 @@
-
 #
 #
 #      0=================================0
@@ -8,257 +7,263 @@
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      Implements
+#      Implements: Trainer  __init__(), train()
 #
 # ----------------------------------------------------------------------------------------------------------------------
 #
-#      YUWEI CAO - 
+#      YUWEI CAO - 2020/10/25 08:54 AM
 #
 #
 
 
-
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
+# ----------------------------------------
+# Import packages and constant
+# ----------------------------------------
+import time
 import os
 import sys
-import math
-import h5py
-import argparse
 import numpy as np
-from datetime import datetime
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(BASE_DIR)
+import shutil
+import torch
+#import argparse
+import torch.optim as optim
 
-import data_utils
-import common
+from tensorboardX import SummaryWriter
+from model import DGCNN_FoldNet
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--folder', '-f', help='Path to data folder')
-    parser.add_argument('--max_point_num', '-m', help='Max point number of each sample', type=int, default=8192)
-    parser.add_argument('--block_size', '-b', help='Block size', type=float, default=1.5)
-    parser.add_argument('--grid_size', '-g', help='Grid size', type=float, default=0.03)
-    parser.add_argument('--save_ply', '-s', help='Convert .pts to .ply', action='store_true')
-    parser.add_argument('--random_sample', '-r', action='store_true')
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_DIR)
 
-    args = parser.parse_args()
-    print(args)
+sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
+#from ArCH import ArchDataset
+from dataloader import get_dataloader
+from shapenet_dataloader import get_shapenet_dataloader
 
-    root = args.folder if args.folder else os.path.join(ROOT_DIR, 'data', 'arch')
-    max_point_num = args.max_point_num
+sys.path.append(os.path.join(ROOT_DIR, 'utils'))
+from pc_utils import is_h5_list, load_seg_list
+from net_utils import Logger
 
-    batch_size = 2048
-    data = np.zeros((batch_size, max_point_num, 6))
-    data_num = np.zeros((batch_size), dtype=np.int32)
-    label = np.zeros((batch_size), dtype=np.int32)
-    label_seg = np.zeros((batch_size, max_point_num), dtype=np.int32)
-    indices_split_to_full = np.zeros((batch_size, max_point_num), dtype=np.int32)
-
-    if args.save_ply:
-        data_center = np.zeros((batch_size, max_point_num, 3))
-    datasets=[]
-    folders = [os.path.join(root, folder) for folder in ['test', 'train_scene7']]
-    for folder in folders:
-        datasets = os.listdir(folder)
-        for dataset_idx, dataset in enumerate(datasets):
-            filename_txt = os.path.join(folder, dataset)
-            print('{}-Loading {}...'.format(datetime.now(), filename_txt))
-            all_data = np.loadtxt(filename_txt)
-            xyzrgbl = all_data[:, 0:7]
-            labels = xyzrgbl[:,-1]
-
-            xyz = xyzrgbl[:,0:3]
-            rgb = xyzrgbl[:,3:6] / 255 - 0.5
-
-            offsets = [('zero', 0.0), ('half', args.block_size / 2)]
-            for offset_name, offset in offsets:
-                idx_h5 = 0
-                idx = 0
-
-                print('{}-Computing block id of {} points...'.format(datetime.now(), xyzrgbl.shape[0]))
-                xyz_min = np.amin(xyz, axis=0, keepdims=True) - offset
-                xyz_max = np.amax(xyz, axis=0, keepdims=True)
-                block_size = (args.block_size, args.block_size, 2 * (xyz_max[0, -1] - xyz_min[0, -1]))
-                xyz_blocks = np.floor((xyz - xyz_min) / block_size).astype(np.int)
-
-                print('{}-Collecting points belong to each block...'.format(datetime.now(), xyzrgbl.shape[0]))
-                blocks, point_block_indices, block_point_counts = np.unique(xyz_blocks, return_inverse=True,
-                                                                            return_counts=True, axis=0)
-                block_point_indices = np.split(np.argsort(point_block_indices), np.cumsum(block_point_counts[:-1]))
-                print('{}-{} is split into {} blocks.'.format(datetime.now(), dataset, blocks.shape[0]))
-
-                block_to_block_idx_map = dict()
-                for block_idx in range(blocks.shape[0]):
-                    block = (blocks[block_idx][0], blocks[block_idx][1])
-                    block_to_block_idx_map[(block[0], block[1])] = block_idx
-
-                # merge small blocks into one of their big neighbors
-                block_point_count_threshold = max_point_num / 10
-                nbr_block_offsets = [(0, 1), (1, 0), (0, -1), (-1, 0), (-1, 1), (1, 1), (1, -1), (-1, -1)]
-                block_merge_count = 0
-                for block_idx in range(blocks.shape[0]):
-                    if block_point_counts[block_idx] >= block_point_count_threshold:
-                        continue
-
-                    block = (blocks[block_idx][0], blocks[block_idx][1])
-                    for x, y in nbr_block_offsets:
-                        nbr_block = (block[0] + x, block[1] + y)
-                        if nbr_block not in block_to_block_idx_map:
-                            continue
-
-                        nbr_block_idx = block_to_block_idx_map[nbr_block]
-                        if block_point_counts[nbr_block_idx] < block_point_count_threshold:
-                            continue
-
-                        block_point_indices[nbr_block_idx] = np.concatenate(
-                            [block_point_indices[nbr_block_idx], block_point_indices[block_idx]], axis=-1)
-                        block_point_indices[block_idx] = np.array([], dtype=np.int)
-                        block_merge_count = block_merge_count + 1
-                        break
-                print('{}-{} of {} blocks are merged.'.format(datetime.now(), block_merge_count, blocks.shape[0]))
-
-                idx_last_non_empty_block = 0
-                for block_idx in reversed(range(blocks.shape[0])):
-                    if block_point_indices[block_idx].shape[0] != 0:
-                        idx_last_non_empty_block = block_idx
-                        break
-
-                # uniformly sample each block
-                for block_idx in range(idx_last_non_empty_block + 1):
-                    point_indices = block_point_indices[block_idx]
-                    if point_indices.shape[0] == 0:
-                        continue
-                    block_points = xyz[point_indices]
-                    block_min = np.amin(block_points, axis=0, keepdims=True)
-                    xyz_grids = np.floor((block_points - block_min) / args.grid_size).astype(np.int)
-                    grids, point_grid_indices, grid_point_counts = np.unique(xyz_grids, return_inverse=True,
-                                                                             return_counts=True, axis=0)
-                    grid_point_indices = np.split(np.argsort(point_grid_indices), np.cumsum(grid_point_counts[:-1]))
-                    grid_point_count_avg = int(np.average(grid_point_counts))
-                    point_indices_repeated = []
-                    for grid_idx in range(grids.shape[0]):
-                        point_indices_in_block = grid_point_indices[grid_idx]
-                        repeat_num = math.ceil(grid_point_count_avg / point_indices_in_block.shape[0])
-                        if repeat_num > 1:
-                            point_indices_in_block = np.repeat(point_indices_in_block, repeat_num)
-                            np.random.shuffle(point_indices_in_block)
-                            point_indices_in_block = point_indices_in_block[:grid_point_count_avg]
-                        point_indices_repeated.extend(list(point_indices[point_indices_in_block]))
-                    block_point_indices[block_idx] = np.array(point_indices_repeated)
-                    block_point_counts[block_idx] = len(point_indices_repeated)
-
-                for block_idx in range(idx_last_non_empty_block + 1):
-                    point_indices = block_point_indices[block_idx]
-                    if point_indices.shape[0] == 0:
-                        continue
-
-                    block_point_num = point_indices.shape[0]
-                    block_split_num = int(math.ceil(block_point_num * 1.0 / max_point_num))
-                    point_num_avg = int(math.ceil(block_point_num * 1.0 / block_split_num))
-                    point_nums = [point_num_avg] * block_split_num
-                    point_nums[-1] = block_point_num - (point_num_avg * (block_split_num - 1))
-                    starts = [0] + list(np.cumsum(point_nums))
-
-                    np.random.shuffle(point_indices)
-                    block_points = xyz[point_indices]
-                    block_min = np.amin(block_points, axis=0, keepdims=True)
-                    block_max = np.amax(block_points, axis=0, keepdims=True)
-                    block_center = (block_min + block_max) / 2
-                    block_center[0][-1] = block_min[0][-1]
-                    block_points = block_points - block_center  # align to block bottom center
-                    x, y, z = np.split(block_points, (1, 2), axis=-1)
-                    block_xzyrgb = np.concatenate([x, z, y, rgb[point_indices]], axis=-1)
-                    block_labels = labels[point_indices]
-
-                    for block_split_idx in range(block_split_num):
-                        start = starts[block_split_idx]
-                        point_num = point_nums[block_split_idx]
-                        end = start + point_num
-                        idx_in_batch = idx % batch_size
-                        data[idx_in_batch, 0:point_num, ...] = block_xzyrgb[start:end, :]
-                        data_num[idx_in_batch] = point_num
-                        label[idx_in_batch] = dataset_idx  # won't be used...
-                        label_seg[idx_in_batch, 0:point_num] = block_labels[start:end]
-                        indices_split_to_full[idx_in_batch, 0:point_num] = point_indices[start:end]
-                        if args.save_ply:
-                            block_center_xzy = np.array([[block_center[0][0], block_center[0][2], block_center[0][1]]])
-                            data_center[idx_in_batch, 0:point_num, ...] = block_center_xzy
-
-                        if ((idx + 1) % batch_size == 0) or \
-                                (block_idx == idx_last_non_empty_block and block_split_idx == block_split_num - 1):
-                            item_num = idx_in_batch + 1
-                            filename_h5 = os.path.join(folder, dataset + '_8196_%s_%d.h5' % (offset_name, idx_h5))
-                            print('{}-Saving {}...'.format(datetime.now(), filename_h5))
-                            
-                            file = h5py.File(filename_h5, 'w')
-                            file.create_dataset('data', data=data[0:item_num, ...])
-                            file.create_dataset('data_num', data=data_num[0:item_num, ...])
-                            file.create_dataset('label', data=label[0:item_num, ...])
-                            file.create_dataset('label_seg', data=label_seg[0:item_num, ...])
-                            file.create_dataset('indices_split_to_full', data=indices_split_to_full[0:item_num, ...])
-                            file.close()
-                            
-                            if args.random_sample:
-                                data, label_seg = data_utils.load_h5_seg(filename_h5)
-                                assert(data.shape[1] == label_seg.shape[1])
-                                N = data.shape[1]
-                                sample = np.random.choice(N, 4096)
-                                sampled_filename = filename_h5 = os.path.join(folder, dataset + '_8196_%s_%d_sampled.h5' % (offset_name, idx_h5))
-                                file = h5py.File(sampled_filename, 'w')
-                                file.create_dataset('data', data=data[0:item_num, sample, :])
-                                file.create_dataset('label_seg', data=label_seg[0:item_num, sample, :])
-                                file.close()
-
-                            if args.save_ply:
-                                print('{}-Saving ply of {}...'.format(datetime.now(), filename_h5))
-                                filepath_label_ply = os.path.join(folder, 'ply_label',
-                                                                  dataset + '_label_%s_%d' % (offset_name, idx_h5))
-                                data_utils.save_ply_property_batch(
-                                    data[0:item_num, :, 0:3] + data_center[0:item_num, ...],
-                                    label_seg[0:item_num, ...],
-                                    filepath_label_ply, data_num[0:item_num, ...], 8)
-
-                                filepath_i_ply = os.path.join(folder, 'ply_intensity',
-                                                              dataset + '_i_%s_%d' % (offset_name, idx_h5))
-                                data_utils.save_ply_property_batch(
-                                    data[0:item_num, :, 0:3] + data_center[0:item_num, ...],
-                                    data[0:item_num, :, 6],
-                                    filepath_i_ply, data_num[0:item_num, ...], 1.0)
-
-                                filepath_rgb_ply = os.path.join(folder, 'ply_rgb',
-                                                                dataset + '_rgb_%s_%d' % (offset_name, idx_h5))
-                                data_utils.save_ply_color_batch(data[0:item_num, :, 0:3] + data_center[0:item_num, ...],
-                                                                (data[0:item_num, :, 3:6] + 0.5) * 255,
-                                                                filepath_rgb_ply, data_num[0:item_num, ...])
-
-                                filepath_label_aligned_ply = os.path.join(folder, 'ply_label_aligned',
-                                                                          dataset + '_label_%s_%d' % (
-                                                                              offset_name, idx_h5))
-                                data_utils.save_ply_property_batch(data[0:item_num, :, 0:3],
-                                                                   label_seg[0:item_num, ...],
-                                                                   filepath_label_aligned_ply,
-                                                                   data_num[0:item_num, ...], 8)
-
-                                filepath_i_aligned_ply = os.path.join(folder, 'ply_intensity_aligned',
-                                                                      dataset + '_i_%s_%d' % (offset_name, idx_h5))
-                                data_utils.save_ply_property_batch(data[0:item_num, :, 0:3],
-                                                                   data[0:item_num, :, 6],
-                                                                   filepath_i_aligned_ply, data_num[0:item_num, ...],
-                                                                   1.0)
-
-                                filepath_rgb_aligned_ply = os.path.join(folder, 'ply_rgb_aligned',
-                                                                        dataset + '_rgb_%s_%d' % (offset_name, idx_h5))
-                                data_utils.save_ply_color_batch(data[0:item_num, :, 0:3],
-                                                                (data[0:item_num, :, 3:6] + 0.5) * 255,
-                                                                filepath_rgb_aligned_ply, data_num[0:item_num, ...])
-                            idx_h5 = idx_h5 + 1
-                        idx = idx + 1
+DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
 
-if __name__ == '__main__':
-    main()
-    print('{}-Done.'.format(datetime.now()))
+# ----------------------------------------
+# Trainer class
+# ----------------------------------------
+
+class Train_AE(object):
+    def __init__(self, args):
+        self.dataset_name = args.dataset
+        self.epochs = args.epochs
+        self.batch_size = args.batch_size
+        #self.data_dir = os.path.join(ROOT_DIR, 'data')
+        self.snapshot_interval = args.snapshot_interval
+        self.gpu_mode = args.gpu_mode
+        self.model_path = args.model_path
+        self.split = args.split
+        self.num_workers = args.num_workers
+
+        # create output directory and files
+        file = [f for f in args.model_path.split('/')]
+        if args.experiment_name != None:
+            self.experiment_id = 'Reconstruct_' + args.experiment_name
+        elif file[-2] == 'models':
+            self.experiment_id = file[-3]
+        else:
+            self.experiment_id = "Reconstruct" + time.strftime('%m%d%H%M%S')
+        snapshot_root = 'snapshot/%s' %self.experiment_id
+        tensorboard_root = 'tensorboard/%s' %self.experiment_id
+        self.save_dir = os.path.join(ROOT_DIR, snapshot_root, 'models/')
+        self.tboard_dir = os.path.join(ROOT_DIR, tensorboard_root)
+
+        #chenck arguments
+        if self.model_path == '':
+            if not os.path.exists(self.save_dir):
+                os.makedirs(self.save_dir)
+            else:
+                choose = input("Remove " + self.save_dir + " ? (y/n)")
+                if choose == 'y':
+                    shutil.rmtree(self.save_dir)
+                    os.makedirs(self.save_dir)
+                else:
+                    sys.exit(0)
+            if not os.path.exists(self.tboard_dir):
+                os.makedirs(self.tboard_dir)
+            else:
+                shutil.rmtree(self.tboard_dir)
+                os.makedirs(self.tboard_dir)
+        sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'ae_network_log.txt'))
+        self.writer = SummaryWriter(log_dir = self.tboard_dir)
+        print(str(args))
+        
+        
+        # initial dataset by dataloader
+        print('-Preparing dataset...')
+        if self.dataset_name == 'arch':
+            # initial dataset filelist
+            print('-Preparing dataset file list...')
+            if self.split == 'train':
+                filelist = os.path.join(DATA_DIR, 'arch_pointcnn_hdf5_4096', "train_data_files.txt")
+            else:
+                filelist = os.path.join(DATA_DIR, 'arch_pointcnn_hdf5_4096', "test_data_files.txt")
+            
+            self.is_list_of_h5_list = not is_h5_list(filelist)
+            if self.is_list_of_h5_list:
+                self.seg_list = load_seg_list(filelist)
+                self.seg_list_idx = 0
+                filepath = self.seg_list[self.seg_list_idx]
+                self.seg_list_idx += 1
+            else:
+                filepath = filelist
+        
+            print('-Now loading ArCH dataset...')
+            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True)
+            print("training set size: ", self.train_loader.dataset.__len__())
+       
+        elif self.dataset_name == 'shapenetcorev2':
+            print('-Loading ShapeNetCore dataset...')
+            self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = self.dataset_name, split='train', batch_size=args.batch_size, 
+                                    num_workers=args.workers, num_points=args.num_points, shuffle=True, random_rotate = args.use_rotate)
+            print("training set size: ", self.train_loader.dataset.__len__())
+        
+        #initial model
+        self.model = DGCNN_FoldNet(args)
+        #load pretrained model
+        if args.model_path != '':
+            self._load_pretrain(args.model_path)
+
+        # load model to gpu
+        if self.gpu_mode:
+            self.model = self.model.cuda()
+
+        # initialize optimizer
+        self.parameter = self.model.parameters()
+        self.optimizer = optim.Adam(self.parameter, lr=0.0001*16/args.batch_size, betas=(0.9, 0.999), weight_decay=1e-6)
+
+    def run(self):
+        self.train_hist={
+               'loss': [],
+               'per_epoch_time': [],
+               'total_time': []}
+        
+        best_loss = 1000000000
+
+        # start epoch index
+        if self.model_path != '':
+            start_epoch = self.model_path[-7:-4]
+            if start_epoch[0] == '_':
+                start_epoch = start_epoch[1:]
+            start_epoch=int(start_epoch)
+        else:
+            start_epoch = 0
+
+        # start training
+        print('training start!!!')
+        start_time = time.time()
+        self.model.train()
+        for epoch in range(start_epoch, self.epochs):
+            loss = self.train_epoch(epoch)
+            
+            # save snapeshot
+            if (epoch+1) % self.snapshot_interval == 0 or epoch == 0:
+                self._snapshot(epoch+1)
+                if loss < best_loss:
+                    best_loss = loss
+                    self._snapshot('best')
+
+            # save tensorboard
+            if self.writer:
+                self.writer.add_scalar('Train Loss', self.train_hist['loss'][-1], epoch)
+                self.writer.add_scalar('Learning Rate', self._get_lr(), epoch)
+            log_string("end epoch " + str(epoch) + ", training loss: " + str(self.train_hist['loss'][-1]))
+        # finish all epochs
+        self._snapshot(epoch+1)
+        if loss < best_loss:
+            best_loss = loss
+            self._snapshot('best')
+        self.train_hist['total_time'].append(time.time()-start_time)
+        print("Avg one epoch time: %.2f, total %d epoches time: %.2f" % (np.mean(self.train_hist['per_epoch_time']),
+            self.epochs, self.train_hist['total_time'][0]))
+        print("Training finish!... save training results")
+
+
+    def train_epoch(self, epoch):
+        epoch_start_time = time.time()
+        loss_buf = []
+        num_train = len(self.train_loader.dataset)
+        num_batch = int(num_train/self.batch_size)
+        log_string("total training nuber: " + str(num_train) + "total batch number: " + str(num_batch) + " .")
+        for iter, (pts, _) in enumerate(self.train_loader):
+            log_string("batch idx: " + str(iter) + "/" + str(num_batch) + " in " + str(epoch) + "/" + str(self.epochs) + " epoch...")
+            if self.gpu_mode:
+                pts = pts.cuda()
+            
+            start_idx = (self.batch_size * iter) % num_train
+            end_idx = min(start_idx + self.batch_size, num_train)
+            batch_size_train = end_idx - start_idx
+            
+            if self.dataset_name == 'arch':
+                if start_idx + batch_size_train == num_train:
+                    if self.is_list_of_h5_list:
+                        filelist_train_prev = self.seg_list[(self.seg_list_idx - 1) % len(self.seg_list)]
+                        filelist_train = self.seg_list[self.seg_list_idx % len(self.seg_list)]
+                        if filelist_train != filelist_train_prev:
+                            self.train_loader = get_dataloader(filelist=filelist_train, batch_size=self.batch_size, num_workers=self.workers)
+                            num_train = len(self.train_loader.dataset)
+                        self.seg_list_idx += 1
+            
+            # forward
+            self.optimizer.zero_grad()
+            #input(bs, 2048, 3), output(bs, 2025,3)
+            output, _ , _ = self.model(pts)
+            #print("input: " + pts.shape + ", output shape: " + output.shape)
+            loss = self.model.get_loss(pts, output)
+            # backward
+            loss.backward()
+            self.optimizer.step()
+            loss_buf.append(loss.detach().cpu().numpy())
+
+        # finish one epoch
+        epoch_time = time.time() - epoch_start_time
+        self.train_hist['per_epoch_time'].append(epoch_time)
+        self.train_hist['loss'].append(np.mean(loss_buf))
+        print(f'Epoch {epoch+1}: Loss {np.mean(loss_buf)}, time {epoch_time:.4f}s')
+        return np.mean(loss_buf)
+
+
+    def _snapshot(self, epoch):
+        state_dict = self.model.state_dict()
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            new_state_dict[name] = val
+        save_dir = os.path.join(self.save_dir, self.dataset_name)
+        torch.save(new_state_dict, save_dir + "_" + str(epoch) + '.pkl')
+        print(f"Save model to {save_dir}_{str(epoch)}.pkl")
+
+
+    def _load_pretrain(self, pretrain):
+        state_dict = torch.load(pretrain, map_location='cpu')
+        from collections import OrderedDict
+        new_state_dict = OrderedDict()
+        for key, val in state_dict.items():
+            if key[:6] == 'module':
+                name = key[7:]  # remove 'module.'
+            else:
+                name = key
+            new_state_dict[name] = val
+        self.model.load_state_dict(new_state_dict)
+        print(f"Load model from {pretrain}")
+
+
+    def _get_lr(self, group=0):
+        return self.optimizer.param_groups[group]['lr']
+
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','train_log.txt'), 'w')
+def log_string(out_str):
+    LOG_FOUT.write(out_str + '\n')
+    LOG_FOUT.flush()
+    print(out_str)

@@ -32,7 +32,7 @@ sys.path.append(ROOT_DIR)
 
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import translate_pointcloud, jitter_pointcloud, rotate_pointcloud
-from pc_utils import load_seg, grouped_shuffle, load_h5
+from pc_utils import load_sampled_h5_seg, grouped_shuffle
 
 
 # ----------------------------------------
@@ -46,6 +46,7 @@ class ArchDataset(Dataset):
         self.random_jitter = random_jitter
         self.random_rotate = random_rotate
         self.shuffle = group_shuffle
+        self.num_points = num_points
         
         #define all train/test file
         self.path_h5py_all =[]
@@ -53,19 +54,19 @@ class ArchDataset(Dataset):
         log_string("Read datasets by load .h5 files, filelist: " + str(filelist))
         self.path_h5py_all = filelist
         
-        self.data, _, self.num_points, self.labels, _ = load_seg(self.path_h5py_all)
+        self.data, self.seg_labels = load_sampled_h5_seg(self.path_h5py_all)
         
         if self.shuffle:
-            self.data, self.num_points, self.labels = grouped_shuffle([self.data, self.num_points, self.labels])
-        log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.labels.shape) + "]")
+            self.data,  self.seg_labels = grouped_shuffle([self.data, self.seg_labels])
+        log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.seg_labels.shape) + "]")
         
 
     def __getitem__(self, index):
         point_set = self.data[index]
-        label = self.labels[index]
+        label = self.seg_labels[index]
 
         # data sampling
-        choise = np.random.choice(point_set.shape[0], 2048)
+        choise = np.random.choice(point_set.shape[0], self.num_points, replace=(point_set.shape[0]<self.num_points))
         point_set=point_set[choise][...]
         label = label[choise]
         
@@ -89,7 +90,7 @@ class ArchDataset(Dataset):
         return self.data.shape[0]
 
 
-LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'a')
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','datareadlog.txt'), 'w')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()

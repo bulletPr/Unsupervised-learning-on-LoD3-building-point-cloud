@@ -1,4 +1,3 @@
-
 #
 #
 #      0=================================0
@@ -47,7 +46,7 @@ def main():
 
     train_h5 = split_filelists['train']
     random.shuffle(train_h5)
-    train_list = os.path.join(root, 'train_data_files_1.txt')
+    train_list = os.path.join(root, 'train_data_files.txt')
     print('{}-Saving {}...'.format(datetime.now(), train_list))
     with open(train_list, 'w') as filelist:
         for filenames in train_h5:
@@ -61,7 +60,7 @@ def main():
             filelist.write(filename_h5)
     '''
     test_h5 = split_filelists['test']
-    test_list = os.path.join(root, 'test_data_files_1.txt')
+    test_list = os.path.join(root, 'test_data_files.txt')
     print('{}-Saving {}...'.format(datetime.now(), test_list))
     with open(test_list, 'w') as filelist:
         for filename_h5 in test_h5:

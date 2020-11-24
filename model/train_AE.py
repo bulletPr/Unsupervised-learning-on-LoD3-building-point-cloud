@@ -91,7 +91,7 @@ class Train_AE(object):
             else:
                 shutil.rmtree(self.tboard_dir)
                 os.makedirs(self.tboard_dir)
-        sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'network_log.txt'))
+        sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'ae_network_log.txt'))
         self.writer = SummaryWriter(log_dir = self.tboard_dir)
         print(str(args))
         
@@ -102,9 +102,9 @@ class Train_AE(object):
             # initial dataset filelist
             print('-Preparing dataset file list...')
             if self.split == 'train':
-                filelist = os.path.join(DATA_DIR, self.dataset_name, "train_data_files.txt")
+                filelist = os.path.join(DATA_DIR, 'arch_pointcnn_hdf5_4096', "train_data_files.txt")
             else:
-                filelist = os.path.join(DATA_DIR, self.dataset_name, "test_data_files.txt")
+                filelist = os.path.join(DATA_DIR, 'arch_pointcnn_hdf5_4096', "test_data_files.txt")
             
             self.is_list_of_h5_list = not is_h5_list(filelist)
             if self.is_list_of_h5_list:
@@ -215,7 +215,7 @@ class Train_AE(object):
             self.optimizer.zero_grad()
             #input(bs, 2048, 3), output(bs, 2025,3)
             output, _ , _ = self.model(pts)
-            print("input: " + pts.shape + ", output shape: " + output.shape)
+            #print("input: " + pts.shape + ", output shape: " + output.shape)
             loss = self.model.get_loss(pts, output)
             # backward
             loss.backward()
