@@ -25,21 +25,21 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'model'))
 
 from train_AE import Train_AE
-from train_cls import SVM
-from train_part import Train_Part
-from train_sem import Train_Sem
+from svm import SVM
+#from train_part import Train_Part
+#from train_sem import Train_Sem
 
 from save_latent_cls import SaveClsFile
-from save_latent_part import SavePartFile
-from save_latent_sem import SaveSemFile
-
-
+#from save_latent_part import SavePartFile
+#from save_latent_sem import SaveSemFile
 
 
 def get_parser():
     parser = argparse.ArgumentParser(description='Unsupervised Building Point Cloud Feature Learning')
     parser.add_argument('--experiment_name', type=str, default=None, metavar='N',
                         help='Name of the experiment')
+    parser.add_argument('--task', type=str, default='classification', metavar='N', 
+                        choices=['reconstruction', 'classification','part_segmentation','sem_segmentation'])
     parser.add_argument('--encoder', type=str, default='foldnet', metavar='N',
                         choices=['foldnet', 'dgcnn_cls', 'dgcnn_seg'],
                         help='Encoder to use, [foldnet, dgcnn_cls, dgcnn_seg]')

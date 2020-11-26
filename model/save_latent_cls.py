@@ -133,7 +133,7 @@ class SaveClsFile(object):
             if self.gpu_mode:
                 pts = pts.cuda()
                 lbs = lbs.cuda()
-            output, feature  = self.model(pts) #output of reconstruction network
+            _, feature, _  = self.model(pts) #output of reconstruction network
             feature_train.append(feature.detach().cpu().numpy().squeeze(1))  #output feature used to train a svm classifer
             lbs_train.append(lbs.cpu().numpy().squeeze(1))
             if ((iter+1)*self.batch_size % 2048) == 0 or (iter+1)==len(self.infer_loader_train):
@@ -163,7 +163,7 @@ class SaveClsFile(object):
             if self.gpu_mode:
                 pts = pts.cuda()
                 lbs = lbs.cuda()
-            output, feature = self.model(pts)
+            _, feature,_ = self.model(pts)
             feature_test.append(feature.detach().cpu().numpy().squeeze(1))
             lbs_test.append(lbs.cpu().numpy().squeeze(1))
             if ((iter+1)*self.batch_size % 2048) == 0 or (iter+1)==len(self.infer_loader_train):
