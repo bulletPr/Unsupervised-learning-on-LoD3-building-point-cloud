@@ -83,7 +83,7 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
             class_dist_count[label_c]+=1
             new_shape = (data_count+1,opt.num_points,opt.feature_dims,)
             dset.resize(new_shape)
-
+            dset_s.resize((data_count+1,opt.num_points,))
             dset[data_count,:,:] = data[c]
             dset_s[data_count,:] = seg_label[c]
 
@@ -292,8 +292,8 @@ if __name__ == "__main__":
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
     parser.add_argument('--model', type=str, default='', help='model path')
     parser.add_argument('--dataset', type=str, default='arch', help='dataset: s3dis, arch')
-    parser.add_argument('--percentage', type=int, default=100, help='traing cls with percent of training_data')
-    parser.add_argument('--n_classes', type=int, default=10, help='part classes in all the catagories')
+    parser.add_argument('--percentage', type=int, default=100, help='training cls with percent of training_data')
+    parser.add_argument('--n_classes', type=int, default=10, help='semantic classes in all the catagories')
 
     opt = parser.parse_args()
     print(opt)

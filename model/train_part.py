@@ -58,22 +58,20 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
     fw = h5py.File(out_file_name, 'w', libver='latest')
     dset = fw.create_dataset("data", (1,opt.num_points,opt.feature_dims,),maxshape=(None, opt.num_points, opt.feature_dims), dtype='<f4')
     dset_s = fw.create_dataset("label_seg",(1,opt.num_points,),maxshape=(None,opt.num_points,),dtype='uint8')
-    dset_c = fw.create_dataset("label",(1,),maxshape=(None,),dtype='uint8')
     fw.swmr_mode = True   
     f = h5py.File(ori_file_name)
     data = f['data'][:]
     part_label = f['label_seg'][:]
-    cls_label = f['label'][:]
     
     #data shuffle
     if shuffle:        
-        idx = np.arange(len(cls_label))
+        idx = np.arange(len(part_label))
         np.random.shuffle(idx)
-        data,part_label,cls_label = data[idx, ...], part_label[idx, ...],cls_label[idx]
+        data,part_label = data[idx, ...], part_label[idx, ...]
     
     class_dist= np.zeros(n_classes)
     for c in range(len(data)):
-        class_dist[cls_label[c]]+=1
+        class_dist[part_label[c]]+=1
     print('Ori data to size of :', np.sum(class_dist))
     print ('class distribution of this dataset :',class_dist)
         
@@ -85,19 +83,16 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
    
     data_count=0
     for c in range(len(data)):
-        label_c=cls_label[c]
+        label_c=part_label[c]
         if(class_dist_count[label_c] < class_dist_new[label_c]):
             class_dist_count[label_c]+=1
-            new_shape = (data_count+1,opt.latent_caps_size,opt.latent_vec_size,)
+            new_shape = (data_count+1,opt.num_points,opt.feature_dims,)
             dset.resize(new_shape)
-            dset_s.resize((data_count+1,opt.latent_caps_size,))
-            dset_c.resize((data_count+1,))
+            dset_s.resize((data_count+1,opt.num_points,))
             dset[data_count,:,:] = data[c]
             dset_s[data_count,:] = part_label[c]
-            dset_c[data_count] = cls_label[c]
             dset.flush()
             dset_s.flush()
-            dset_c.flush()
             data_count+=1
     print('Finished resizing data to size of :', np.sum(class_dist_new))
     print ('class distribution of resized dataset :',class_dist_new)
@@ -116,7 +111,7 @@ def load_pretrain(model, pretrain):
         model.load_state_dict(new_state_dict)
         print(f"Load model from {pretrain}")  
 
-def _snapshot(save_dir, model, epoch):
+def _snapshot(save_dir, model, epoch, opt):
     state_dict = model.state_dict()
     from collections import OrderedDict
     new_state_dict = OrderedDict()
@@ -127,37 +122,36 @@ def _snapshot(save_dir, model, epoch):
             name = key
         new_state_dict[name] = val
     save_dir = os.path.join(save_dir, opt.dataset)
-    torch.save(new_state_dict, save_dir + "_" + str(epoch) + '.pkl')
+    torch.save(new_state_dict, save_dir+'% of_training_data_at_epoch' + str(epoch) + '.pkl')
     print(f"Save model to {save_dir}_{str(epoch)}.pkl")
 
 def main():
     blue = lambda x:'\033[94m' + x + '\033[0m'
 
-
-    experiment_id = 'part_segmentation_'+ 'opt.dataset'+'_1024'
+    experiment_id = 'part_segmentation_'+ opt.dataset +'_1024'+ '_' + str(opt.percentage)
     
-    snapshot_root = 'snapshot/%s' %self.experiment_id
-    tensorboard_root = 'tensorboard/%s' %self.experiment_id
+    snapshot_root = 'snapshot/%s' %experiment_id
+    tensorboard_root = 'tensorboard/%s' %experiment_id
     save_dir = os.path.join(ROOT_DIR, snapshot_root, 'models/')
     tboard_dir = os.path.join(ROOT_DIR, tensorboard_root)
 
     
     #create folder to save trained models
     if opt.model == '':
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         else:
-            choose = input("Remove " + self.save_dir + " ? (y/n)")
+            choose = input("Remove " + save_dir + " ? (y/n)")
             if choose == 'y':
-                shutil.rmtree(self.save_dir)
-                os.makedirs(self.save_dir)
+                shutil.rmtree(save_dir)
+                os.makedirs(save_dir)
             else:
                 sys.exit(0)
-        if not os.path.exists(self.tboard_dir):
-            os.makedirs(self.tboard_dir)
+        if not os.path.exists(tboard_dir):
+            os.makedirs(tboard_dir)
         else:
-            shutil.rmtree(self.tboard_dir)
-            os.makedirs(self.tboard_dir)
+            shutil.rmtree(tboard_dir)
+            os.makedirs(tboard_dir)
     sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'part_seg_network_log.txt'))
     writer = SummaryWriter(log_dir = tboard_dir)
 
@@ -184,7 +178,7 @@ def main():
     print('-Preparing dataset...')
     data_resized=False
     if(opt.percent_training_dataset<100):            
-        ResizeDataset( percentage=opt.percent_training_dataset, n_classes=opt.n_classes,shuffle=True)
+        ResizeDataset( percentage=opt.percent_training_dataset, n_classes=opt.part_num,shuffle=True)
         data_resized=True
    
     train_dataset =  latent_loader.Saved_latent_caps_loader(
@@ -192,18 +186,16 @@ def main():
     test_dataset =  latent_loader.Saved_latent_caps_loader(
             dataset=opt.dataset, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=False, train=False,resized=False)
 
-
     #initial model
-    part_seg_net = PartSegNet(num_classes=opt.n_classes, with_rgb=False)
+    part_seg_net = PartSegNet(part_num=opt.part_num, with_rgb=False)
     #load pretrained model
     if opt.model != '':
         part_seg_net.load_pretrain(part_seg_net, opt.model)            
     # load model to gpu
-    if USE_CUDA:
+    if opt.gpu_mode:
         part_seg_net = part_seg_net.cuda()       
     # initialize optimizer
     optimizer = optim.Adam(part_seg_net.parameters(), lr=0.01) 
-    
 
 # start training
     n_batch = 0
@@ -224,7 +216,7 @@ def main():
         batch_id = 0
         part_seg_net=part_seg_net.train()
         while train_dataset.has_next_batch():
-            latent_caps_, part_label, cls_label = train_dataset.next_batch()            
+            latent_caps_, part_label = train_dataset.next_batch()            
             
             target = torch.from_numpy(part_label.astype(np.int64))
             
@@ -233,14 +225,14 @@ def main():
             if(latent_caps.size(0)<opt.batch_size):
                 continue
             latent_caps, target = Variable(latent_caps), Variable(target)
-            if USE_CUDA:
+            if opt.gpu_mode:
                 latent_caps,target = latent_caps.cuda(), target.cuda()                            
     
 # forward
             optimizer.zero_grad()
             latent_caps=latent_caps.transpose(2, 1)# consider the capsule vector size as the channel in the network
             output_digit = part_seg_net(latent_caps)
-            output_digit = output_digit.view(-1, opt.n_classes)        
+            output_digit = output_digit.view(-1, opt.part_num)        
             #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
     
             target= target.view(-1,1)[:,0] 
@@ -258,7 +250,7 @@ def main():
             # save tensorboard
             total_time = time.time()-start_time 
             print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time),
-                                                                        epoch, total_time)
+                                                                        epoch, total_time))
             loss.append(train_loss)
             writer.add_scalar('Train Loss', loss[-1], epoch)
         
@@ -290,38 +282,30 @@ def main():
                 correct_sum=correct_sum+correct.item()
                 batch_id+=1
             
-            snapshot(part_seg_net, epoch + 1)
-            if loss < best_loss:
-                best_loss = loss
-                snapshot(part_seg_net, 'best')
+            _snapshot(save_dir,sem_seg_net, epoch + 1)
 
             print(' accuracy of epoch %d is: %f' %(epoch,correct_sum/float((batch_id+1)*opt.batch_size * opt.num_points)))
-            dict_name=opt.outf+'/'+ str(opt.latent_caps_size)+'caps_'+str(opt.num_points)+'vec_'+ str(opt.percent_training_dataset) + '% of_training_data_at_epoch'+str(epoch)+'.pth'
-            torch.save(part_seg_net.module.state_dict(), dict_name)
              
         train_dataset.reset()
         test_dataset.reset()
+    print("Training finish!... save training results")
         
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_epochs', type=int, default=300, help='number of epochs to train for')
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
-
-    parser.add_argument('--prim_caps_size', type=int, default=1024, help='number of primary point caps')
-    parser.add_argument('--prim_vec_size', type=int, default=16, help='scale of primary point caps')
-    parser.add_argument('--latent_caps_size', type=int, default=64, help='number of latent caps')
+    parser.add_argument('--ae_epochs', type=int, default=100, help='choose which pre-trained ae to use')
     parser.add_argument('--latent_vec_size', type=int, default=64, help='scale of latent caps')
-
+    parser.add_argument('--gpu_mode', action='store_true', help='Enables CUDA training')
+    parser.add_argument('--feature_dims', type=int, default=1024, help='scale of latent features')
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
     parser.add_argument('--model', type=str, default='../AE/tmp_checkpoints/shapenet_part_dataset__64caps_64vec_70.pth', help='model path')
     parser.add_argument('--dataset', type=str, default='shapenet_part', help='dataset: shapenet_part, shapenet_core13, shapenet_core55, modelent40')
-    parser.add_argument('--outf', type=str, default='tmp_checkpoints', help='output folder')
-    parser.add_argument('--percent_training_dataset', type=int, default=100, help='traing cls with percent of training_data')
-    parser.add_argument('--n_classes', type=int, default=50, help='part classes in all the catagories')
+    parser.add_argument('--percent_training_dataset', type=int, default=100, help='training cls with percent of training_data')
+    parser.add_argument('--part_num', type=int, default=50, help='part classes in all the catagories')
 
     opt = parser.parse_args()
     print(opt)
 
-    USE_CUDA = True
-    main()
+    main(opt)

@@ -53,13 +53,13 @@ def load_pretrain(model, pretrain):
         return model
 
 
-def main():
+def main(opt):
     USE_CUDA = True
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     ae_net = DGCNN_FoldNet(opt)
   
     if opt.model != '':
-        capsule_net = load_pretrain(ae_net, opt.model)
+        capsule_net = load_pretrain(ae_net, os.path.join(opt.model))
 
     if USE_CUDA:       
         print("Let's use", torch.cuda.device_count(), "GPUs!")
@@ -74,7 +74,7 @@ def main():
             log_string('-Now loading test shapenet_part dataset...')
             split='test'
 
-        dataset = shapenet_part_loader.PartDataset(classification=False, npoints=opt.num_points, split=split)
+        dataset = shapenetpart_loader.PartDataset(classification=False, npoints=opt.num_points, split=split)
         dataloader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4)
         log_string("classifer set size: " + dataloader.dataset.__len__())
         
@@ -82,7 +82,7 @@ def main():
     #pcd = PointCloud() 
     data_size=0
     dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
-    experiment_name = opt.dataset + opt.encoder + '_' + opt.latent_vec_size + '_' + opt.n_epochs
+    experiment_name = opt.dataset + '_' + opt.encoder + '_' + opt.latent_vec_size + '_' + str(opt.pre_ae_epochs)
     out_file_path=os.path.join(dataset_main_path, experiment_name, 'features')
     if not os.path.exists(out_file_path):
         os.makedirs(out_file_path);   
@@ -103,51 +103,40 @@ def main():
     ae_net.eval()
     
     for batch_id, data in enumerate(dataloader):
-        points, sem_label, cls_label= data
+        points, part_label= data
         if(points.size(0)<opt.batch_size):
             break
         points = Variable(points)
         #points = points.transpose(2, 1)
         if USE_CUDA:
             points = points.cuda()
-            sem_label = sem_label.cuda()
-            cls_label = cls_label.cuda()
+            part_label = part_label.cuda()
         
-        reconstructions, code, mid_features = ae_net(points)
+        _, code, mid_features = ae_net(points)
 
-        rep_code = code.view(-1,opt.latent_vec_size,1).repeat(1,1,opt.num_points)
-        con_code = torch.cat([rep_code, mid_features],1)
+        con_code = torch.cat([code.view(-1,args.latent_vec_size,1).repeat(1,1,args.num_points), mid_features],1)
        
         # For each resonstructed point, find the nearest point in the input pointset, 
         # use their part label to annotate the resonstructed point,
         # Then after checking which capsule reconstructed this point, use the part label to annotate this capsule
-        reconstructions=reconstructions.data().cpu()   
-        points=points.data().cpu()  
-        for batch_no in range (points.size(0)):
-            #pcd.points = Vector3dVector(points[batch_no,])
-            #pcd_tree = KDTreeFlann(pcd)
-            for point_id in range (opt.num_points):
-                #[k, idx, _] = pcd_tree.search_knn_vector_3d(reconstructions[batch_no,point_id,:], 1)
-                point_sem_label=sem_label[batch_no, idx]            
+        #reconstructions=reconstructions.data().cpu()   
+        points=points.data().cpu()        
     
         # write the output latent caps and cls into file
         data_size=data_size+points.size(0)
         new_shape = (data_size,opt.num_points, opt.latent_vec_size, )
         dset.resize(new_shape)
         dset_s.resize((data_size,opt.num_points,))
-        dset_c.resize((data_size,))
         
         code_=con_code.transpose(2,1).cpu().detach().numpy()
 
-        target_=point_sem_label.numpy()
+        target_=part_label.numpy()
         dset[data_size-points.size(0):data_size,:,:] = code_
         dset_s[data_size-points.size(0):data_size] = target_
-        dset_c[data_size-points.size(0):data_size] = cls_label.squeeze().numpy()
     
         dset.flush()
         dset_s.flush()
-        dset_c.flush()
-        print('accumalate of batch %d, and datasize is %d ' % ((batch_id), (dset.shape[0])))
+        print('accumalate of batch %d, and datasize is (%d, %d), dset_s size is: (%d,%d) ' % ((batch_id), (dset.shape[0]), (dset.shape[1]), (dset_s.shape[0]), (dset_s.shape[1])))
            
     fw.close()   
 
@@ -159,20 +148,20 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
     parser.add_argument('--n_epochs', type=int, default=300, help='number of epochs to train for')
+    parser.add_argument('--pre_ae_epochs', type=int, default=100, help='choose which pretrained model to use')
 
-    parser.add_argument('--prim_caps_size', type=int, default=1024, help='number of primary point caps')
-    parser.add_argument('--prim_vec_size', type=int, default=16, help='scale of primary point caps')
     parser.add_argument('--latent_vec_size', type=int, default=1024, help='scale of latent caps')
 
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
     parser.add_argument('--model', type=str, default='../AE/tmp_checkpoints/shapenet_part_dataset__64caps_64vec_70.pth', help='model path')
     parser.add_argument('--dataset', type=str, default='shapenet_part', help='It has to be shapenet part')
-#    parser.add_argument('--save_training', type=bool, default=True, help='save the output latent caps of training data or test data')
     parser.add_argument('--save_training', help='save the output latent caps of training data or test data', action='store_true')
 
     parser.add_argument('--n_classes', type=int, default=16, help='catagories of current dataset')
     parser.add_argument('--enocder', type=str, default='fodlingnet', help='encoder use')
+    parser.add_argument('--k', type=int, default=None)
+    parser.add_argument('--feat_dims', type=int, default=1024)
 
     opt = parser.parse_args()
     print(opt)
-    main()
+    main(opt)
