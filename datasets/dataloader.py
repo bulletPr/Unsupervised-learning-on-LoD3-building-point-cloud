@@ -33,7 +33,10 @@ def get_dataloader(filelist, batch_size=32,
     dataset = ArchDataset(
             filelist=filelist,
             num_points=num_points,
-            group_shuffle=group_shuffle)
+            group_shuffle=group_shuffle,
+            random_translate=False, 
+            random_rotate=False,
+            random_jitter=False)
     dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,

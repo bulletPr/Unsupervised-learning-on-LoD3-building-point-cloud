@@ -116,7 +116,7 @@ class Train_AE(object):
                 filepath = filelist
         
             print('-Now loading ArCH dataset...')
-            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True)
+            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True, random_rotate=args.use_rotate)
             print("training set size: ", self.train_loader.dataset.__len__())
        
         elif self.dataset_name == 'shapenetcorev2':
