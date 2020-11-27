@@ -200,8 +200,8 @@ def main():
 # start training
     n_batch = 0
     # start epoch index
-    if self.model_path != '':
-        start_epoch = self.model_path[-7:-4]
+    if opt.model != '':
+        start_epoch = opt.model[-7:-4]
         if start_epoch[0] == '_':
             start_epoch = start_epoch[1:]
         start_epoch=int(start_epoch)
@@ -259,7 +259,7 @@ def main():
             correct_sum=0
             batch_id=0
             while test_dataset.has_next_batch():
-                latent_caps, part_label, cls_label = test_dataset.next_batch()
+                latent_caps, part_label = test_dataset.next_batch()
 
                 target = torch.from_numpy(seg_label.astype(np.int64))
         
@@ -267,7 +267,7 @@ def main():
                 if(latent_caps.size(0)<opt.batch_size):
                     continue
                 latent_caps, target = Variable(latent_caps), Variable(target)   
-                if USE_CUDA:
+                if opt.gpu_mode:
                     latent_caps,target = latent_caps.cuda(), target.cuda()
                 
                 latent_caps=latent_caps.transpose(2, 1)        

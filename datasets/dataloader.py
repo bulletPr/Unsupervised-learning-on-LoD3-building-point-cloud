@@ -28,7 +28,8 @@ sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from pc_utils import is_h5_list, load_seg_list
 
 def get_dataloader(filelist, batch_size=32,  
-        num_points=2048, num_workers=4, group_shuffle=False, shuffle=False):
+        num_points=2048, num_workers=4, group_shuffle=False, shuffle=False, random_translate=False, random_rotate=False,
+            random_jitter=False):
     dataset = ArchDataset(
             filelist=filelist,
             num_points=num_points,
@@ -54,7 +55,8 @@ if __name__ == '__main__':
         seg_list_idx = seg_list_idx + 1
     else:
         filepath = filelist
-    dataloader = get_dataloader(filelist=filepath, batch_size=4, num_points=2048,group_shuffle=True)
+    dataloader = get_dataloader(filelist=filepath, batch_size=4, num_points=2048,group_shuffle=True,random_translate=False, random_rotate=False,
+            random_jitter=False)
     print("dataloader size: ", dataloader.dataset.__len__())
     for iter, (pts,seg) in enumerate(dataloader):
         print("points: ", pts.shape, pts.type)
