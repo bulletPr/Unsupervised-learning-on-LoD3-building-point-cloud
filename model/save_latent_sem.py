@@ -29,6 +29,7 @@ import os
 from tqdm import tqdm
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
+
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
 from s3dis_loader import S3DISDataset
 from dataloader import get_dataloader
@@ -67,7 +68,7 @@ def main(args):
         ae_net.cuda()
     
     if args.dataset=='s3dis':
-        print('-Preparing Loading s3dis evaluation dataset...')
+        log_string('-Preparing Loading s3dis evaluation dataset...')
         classes = ['ceiling','floor','wall','beam','column','window','door','table','chair','sofa','bookcase','board','clutter']
         class2label = {cls: i for i,cls in enumerate(classes)}
         seg_classes = class2label
@@ -91,7 +92,7 @@ def main(args):
         log_string("classifer set size: " + dataloader.dataset.__len__())
 
     elif args.dataset == 'arch':
-        print('-Preparing Loading ArCH evaluation dataset...')
+        log_string('-Preparing Loading ArCH evaluation dataset...')
         data_root = os.path.join(ROOT_DIR, 'data')
         if args.save_training:
             log_string('-Now loading ArCH training classifer dataset...')
@@ -110,8 +111,8 @@ def main(args):
     #pcd = PointCloud() 
     data_size=0
     dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
-    experiment_name = args.dataset + args.encoder + '_' + str(args.latent_vec_size) + '_' + str(args.n_epochs)
-    out_file_path=os.path.join(dataset_main_path, experiment_name,'features')
+    experiment_name = args.dataset + '_' + args.encoder + '_' + str(args.latent_vec_size) + '_' + str(args.pre_ae_epochs)
+    out_file_path=os.path.join(dataset_main_path, experiment_name, 'features')
     if not os.path.exists(out_file_path):
         os.makedirs(out_file_path);   
     if args.save_training:
@@ -123,7 +124,6 @@ def main(args):
     fw = h5py.File(out_file_name, 'w', libver='latest')
     dset = fw.create_dataset("data", (1, args.num_points, args.latent_vec_size,),maxshape=(None,args.num_points, args.latent_vec_size+64,), dtype='<f4')
     dset_s = fw.create_dataset("label_seg",(1,args.num_points,),maxshape=(None,args.num_points,),dtype='uint8')
-    dset_c = fw.create_dataset("label",(1,),maxshape=(None,),dtype='uint8')
     fw.swmr_mode = True
 
 
@@ -140,15 +140,14 @@ def main(args):
             points = points.cuda()
             sem_label = sem_label.cuda()
         
-        reconstructions, code, mid_features = ae_net(points)
+        _, code, mid_features = ae_net(points)
 
-        rep_code = code.view(-1,args.latent_vec_size,1).repeat(1,1,args.num_points)
-        con_code = torch.cat([rep_code, mid_features],1)
+        con_code = torch.cat([code.view(-1,args.latent_vec_size,1).repeat(1,1,args.num_points), mid_features],1)
        
         # For each resonstructed point, find the nearest point in the input pointset, 
         # use their part label to annotate the resonstructed point,
         # Then after checking which capsule reconstructed this point, use the part label to annotate this capsule
-        reconstructions=reconstructions.data.cpu()   
+        #reconstructions=reconstructions.data.cpu()   
         points=points.data.cpu()
         
         # write the output latent caps and cls into file
@@ -156,17 +155,15 @@ def main(args):
         new_shape = (data_size,args.num_points, args.latent_vec_size+64, )
         dset.resize(new_shape)
         dset_s.resize((data_size,args.num_points,))
-        dset_c.resize((data_size,))
         
-        code_=con_code.transpose(2,1).cpu().detach().numpy()
+        code_ = con_code.transpose(2,1).cpu().detach().numpy()
         target_ = sem_label.cpu().detach().numpy()
         dset[data_size-points.size(0):data_size,:,:] = code_
         dset_s[data_size-points.size(0):data_size] = target_
     
         dset.flush()
         dset_s.flush()
-        dset_c.flush()
-        print('accumalate of batch %d, and datasize is %d ' % ((batch_id), (dset.shape[0])))
+        print('accumalate of batch %d, and datasize is (%d, %d), dset_s size is: (%d,%d) ' % ((batch_id), (dset.shape[0]), (dset.shape[1]), (dset_s.shape[0]), (dset_s.shape[1])))
            
     fw.close()   
 
@@ -181,10 +178,7 @@ if __name__ == "__main__":
     import h5py
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
-    parser.add_argument('--n_epochs', type=int, default=100, help='number of epochs to train for')
-
-    #parser.add_argument('--prim_caps_size', type=int, default=1024, help='number of primary point caps')
-    #parser.add_argument('--prim_vec_size', type=int, default=16, help='scale of primary point caps')
+    parser.add_argument('--pre_ae_epochs', type=int, default=100, help='choose which pretrained model to use')
     parser.add_argument('--latent_vec_size', type=int, default=1024, help='scale of latent caps')
 
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
@@ -192,7 +186,7 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='arch', help='It has to be arch dataset')
     parser.add_argument('--save_training', help='save the output latent caps of training data or test data', action='store_true')
 
-    parser.add_argument('--n_classes', type=int, default=1, help='catagories of current dataset')
+    parser.add_argument('--n_classes', type=int, default=10, help='catagories of current dataset')
     parser.add_argument('--encoder', type=str, default='foldnet', help='encoder use')
     parser.add_argument('--k', type=int, default=None)
     parser.add_argument('--feat_dims', type=int, default=1024)

@@ -25,7 +25,7 @@ import sys
 import numpy as np
 import shutil
 import torch
-#import argparse
+import argparse
 import torch.optim as optim
 import h5py
 from tensorboardX import SummaryWriter
@@ -37,14 +37,8 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
 sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
-
 import latent_loader
 
-sys.path.append(os.path.join(ROOT_DIR, 'utils'))
-from pc_utils import is_h5_list, load_seg_list
-from net_utils import Logger
-
-DATA_DIR = os.path.join(ROOT_DIR, 'data')
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
 from net_utils import Logger
 
@@ -58,22 +52,21 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
     fw = h5py.File(out_file_name, 'w', libver='latest')
     dset = fw.create_dataset("data", (1,opt.num_points,opt.feature_dims,),maxshape=(None, opt.num_points, opt.feature_dims), dtype='<f4')
     dset_s = fw.create_dataset("label_seg",(1,opt.num_points,),maxshape=(None,opt.num_points,),dtype='uint8')
-    dset_c = fw.create_dataset("label",(1,),maxshape=(None,),dtype='uint8')
+
     fw.swmr_mode = True   
     f = h5py.File(ori_file_name)
     data = f['data'][:]
-    part_label = f['label_seg'][:]
-    cls_label = f['label'][:]
+    seg_label = f['label_seg'][:]
     
     #data shuffle
     if shuffle:        
-        idx = np.arange(len(cls_label))
+        idx = np.arange(len(seg_label))
         np.random.shuffle(idx)
-        data,part_label,cls_label = data[idx, ...], part_label[idx, ...],cls_label[idx]
+        data,seg_label = data[idx, ...], seg_label[idx, ...]
     
     class_dist= np.zeros(n_classes)
     for c in range(len(data)):
-        class_dist[cls_label[c]]+=1
+        class_dist[seg_label[c]]+=1
     print('Ori data to size of :', np.sum(class_dist))
     print ('class distribution of this dataset :',class_dist)
         
@@ -85,19 +78,18 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
    
     data_count=0
     for c in range(len(data)):
-        label_c=cls_label[c]
+        label_c=seg_label[c]
         if(class_dist_count[label_c] < class_dist_new[label_c]):
             class_dist_count[label_c]+=1
-            new_shape = (data_count+1,opt.latent_caps_size,opt.latent_vec_size,)
+            new_shape = (data_count+1,opt.num_points,opt.feature_dims,)
             dset.resize(new_shape)
-            dset_s.resize((data_count+1,opt.latent_caps_size,))
-            dset_c.resize((data_count+1,))
+
             dset[data_count,:,:] = data[c]
-            dset_s[data_count,:] = part_label[c]
-            dset_c[data_count] = cls_label[c]
+            dset_s[data_count,:] = seg_label[c]
+
             dset.flush()
             dset_s.flush()
-            dset_c.flush()
+
             data_count+=1
     print('Finished resizing data to size of :', np.sum(class_dist_new))
     print ('class distribution of resized dataset :',class_dist_new)
@@ -114,9 +106,10 @@ def load_pretrain(model, pretrain):
                 name = key
             new_state_dict[name] = val
         model.load_state_dict(new_state_dict)
-        print(f"Load model from {pretrain}")  
+        print(f"Load model from {pretrain}")
+        return model  
 
-def _snapshot(save_dir, model, epoch):
+def _snapshot(save_dir, model, epoch, opt):
     state_dict = model.state_dict()
     from collections import OrderedDict
     new_state_dict = OrderedDict()
@@ -127,37 +120,32 @@ def _snapshot(save_dir, model, epoch):
             name = key
         new_state_dict[name] = val
     save_dir = os.path.join(save_dir, opt.dataset)
-    torch.save(new_state_dict, save_dir + "_" + str(epoch) + '.pkl')
+    torch.save(new_state_dict, save_dir+'% of_training_data_at_epoch' + str(epoch) + '.pkl')
     print(f"Save model to {save_dir}_{str(epoch)}.pkl")
 
-def main():
-    blue = lambda x:'\033[94m' + x + '\033[0m'
-
-
-    experiment_id = 'semantic_segmentation_'+ 'opt.dataset'+'_1024'
-    
-    snapshot_root = 'snapshot/%s' %self.experiment_id
-    tensorboard_root = 'tensorboard/%s' %self.experiment_id
+def main(opt):
+    experiment_id = 'Semantic_segmentation_'+ opt.dataset + '_1024' + '_' + str(opt.percentage)
+    snapshot_root = 'snapshot/%s' %experiment_id
+    tensorboard_root = 'tensorboard/%s' %experiment_id
     save_dir = os.path.join(ROOT_DIR, snapshot_root, 'models/')
     tboard_dir = os.path.join(ROOT_DIR, tensorboard_root)
-
     
     #create folder to save trained models
     if opt.model == '':
-        if not os.path.exists(self.save_dir):
-            os.makedirs(self.save_dir)
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir)
         else:
-            choose = input("Remove " + self.save_dir + " ? (y/n)")
+            choose = input("Remove " + save_dir + " ? (y/n)")
             if choose == 'y':
-                shutil.rmtree(self.save_dir)
-                os.makedirs(self.save_dir)
+                shutil.rmtree(save_dir)
+                os.makedirs(save_dir)
             else:
                 sys.exit(0)
-        if not os.path.exists(self.tboard_dir):
-            os.makedirs(self.tboard_dir)
+        if not os.path.exists(tboard_dir):
+            os.makedirs(tboard_dir)
         else:
-            shutil.rmtree(self.tboard_dir)
-            os.makedirs(self.tboard_dir)
+            shutil.rmtree(tboard_dir)
+            os.makedirs(tboard_dir)
     sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'sem_seg_network_log.txt'))
     writer = SummaryWriter(log_dir = tboard_dir)
 
@@ -170,8 +158,7 @@ def main():
         for i,cat in enumerate(seg_classes.keys()):
             seg_label_to_cat[i] = cat
     elif opt.dataset == 'arch':
-        classes = ['ceiling','floor','wall','beam','column','window','door','table','chair','sofa','bookcase','board','clutter']
-        class2label = {cls: i for i,cls in enumerate(classes)}
+        class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}
         seg_classes = class2label
         seg_label_to_cat = {}
         for i,cat in enumerate(seg_classes.keys()):
@@ -180,33 +167,33 @@ def main():
     # load the dataset
     print('-Preparing dataset...')
     data_resized=False
-    if(opt.percent_training_dataset<100):            
-        ResizeDataset( percentage=opt.percent_training_dataset, n_classes=opt.n_classes,shuffle=True)
+    train_path = os.path.join(ROOT_DIR, 'cache', 'archfoldnet_1024_%d'%opt.ae_epochs, 'features')
+    if(opt.percentage<100):        
+        ResizeDataset(path=train_path, percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
    
-    train_dataset =  latent_loader.Saved_latent_caps_loader(
-            dataset=opt.dataset, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=True, train=True,resized=data_resized)
-    test_dataset =  latent_loader.Saved_latent_caps_loader(
-            dataset=opt.dataset, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=False, train=False,resized=False)
+    train_dataset = latent_loader.Saved_latent_caps_loader(
+            feature_dir=train_path, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=True, train=True,resized=data_resized)
+    test_dataset = latent_loader.Saved_latent_caps_loader(
+            feature_dir=train_path, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=False, train=False,resized=False)
 
 
     #initial model
-    sem_seg_net = SemSegNet(num_classes=opt.n_classes, with_rgb=False)
+    sem_seg_net = SemSegNet(num_class=opt.n_classes, with_rgb=False)
     #load pretrained model
     if opt.model != '':
-        sem_seg_net.load_pretrain(sem_seg_net, opt.model)            
+        sem_seg_net = load_pretrain(sem_seg_net, opt.model)            
     # load model to gpu
-    if USE_CUDA:
+    if opt.gpu_mode:
         sem_seg_net = sem_seg_net.cuda()       
     # initialize optimizer
     optimizer = optim.Adam(sem_seg_net.parameters(), lr=0.01) 
-    
 
 # start training
     n_batch = 0
     # start epoch index
-    if self.model_path != '':
-        start_epoch = self.model_path[-7:-4]
+    if opt.model != '':
+        start_epoch = op.model[-7:-4]
         if start_epoch[0] == '_':
             start_epoch = start_epoch[1:]
         start_epoch=int(start_epoch)
@@ -216,12 +203,12 @@ def main():
     print('training start!!!')
     start_time = time.time()
     loss = []
-    best_loss=0
+
     for epoch in range(start_epoch, opt.n_epochs):
         batch_id = 0
         sem_seg_net=sem_seg_net.train()
         while train_dataset.has_next_batch():
-            latent_caps_, seg_label, cls_label = train_dataset.next_batch()            
+            latent_caps_, seg_label = train_dataset.next_batch()            
             
             target = torch.from_numpy(seg_label.astype(np.int64))
             
@@ -230,7 +217,7 @@ def main():
             if(latent_caps.size(0)<opt.batch_size):
                 continue
             latent_caps, target = Variable(latent_caps), Variable(target)
-            if USE_CUDA:
+            if opt.gpu_mode:
                 latent_caps,target = latent_caps.cuda(), target.cuda()                            
     
 # forward
@@ -254,9 +241,8 @@ def main():
             print('[%d: %d/%d] %s loss: %f accuracy: %f' %(epoch, batch_id, n_batch, blue('test'), train_loss.item(), correct.item()/float(opt.batch_size * opt.latent_caps_size)))
             # save tensorboard
             total_time = time.time()-start_time 
-            print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time),
-                                                                        epoch, total_time)
-            loss.append(train_loss)
+            print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch, total_time))
+            loss.append(train_loss.detach().cpu().numpy())
             writer.add_scalar('Train Loss', loss[-1], epoch)
         
         if epoch % 5 == 0:    
@@ -272,7 +258,7 @@ def main():
                 if(latent_caps.size(0)<opt.batch_size):
                     continue
                 latent_caps, target = Variable(latent_caps), Variable(target)    
-                if USE_CUDA:
+                if opt.gpu_mode:
                     latent_caps,target = latent_caps.cuda(), target.cuda()
                 
                 latent_caps=latent_caps.transpose(2, 1)
@@ -287,39 +273,29 @@ def main():
                 correct_sum=correct_sum+correct.item()
                 batch_id+=1
             
-            _snapshot(sem_seg_net, epoch + 1)
-            if loss < best_loss:
-                best_loss = loss
-                snapshot(sem_seg_net, 'best')
+            _snapshot(save_dir,sem_seg_net, epoch + 1)
 
             print(' accuracy of epoch %d is: %f' %(epoch,correct_sum/float((batch_id+1)*opt.batch_size * opt.num_points)))
-            
-            dict_name=opt.outf+'/'+ str(opt.latent_caps_size)+'caps_'+str(opt.num_points)+'vec_'+ str(opt.percent_training_dataset) + '% of_training_data_at_epoch'+str(epoch)+'.pth'
-            torch.save(sem_seg_net.module.state_dict(), dict_name)
              
         train_dataset.reset()
         test_dataset.reset()
+    print("Training finish!... save training results")
         
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--n_epochs', type=int, default=300, help='number of epochs to train for')
+    parser.add_argument('--n_epochs', type=int, default=250, help='number of epochs to train for')
+    parser.add_argument('--ae_epochs', type=int, default=100, help='choose which pre-trained ae to use')
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
-
-    parser.add_argument('--prim_caps_size', type=int, default=1024, help='number of primary point caps')
-    parser.add_argument('--prim_vec_size', type=int, default=16, help='scale of primary point caps')
-    parser.add_argument('--latent_caps_size', type=int, default=64, help='number of latent caps')
-    parser.add_argument('--latent_vec_size', type=int, default=64, help='scale of latent caps')
-
+    parser.add_argument('--gpu_mode', action='store_true', help='Enables CUDA training')
+    parser.add_argument('--feature_dims', type=int, default=1024, help='scale of latent features')
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
-    parser.add_argument('--model', type=str, default='../AE/tmp_checkpoints/shapenet_part_dataset__64caps_64vec_70.pth', help='model path')
-    parser.add_argument('--dataset', type=str, default='shapenet_part', help='dataset: shapenet_part, shapenet_core13, shapenet_core55, modelent40')
-    parser.add_argument('--outf', type=str, default='tmp_checkpoints', help='output folder')
-    parser.add_argument('--percent_training_dataset', type=int, default=100, help='traing cls with percent of training_data')
-    parser.add_argument('--n_classes', type=int, default=50, help='part classes in all the catagories')
+    parser.add_argument('--model', type=str, default='', help='model path')
+    parser.add_argument('--dataset', type=str, default='arch', help='dataset: s3dis, arch')
+    parser.add_argument('--percentage', type=int, default=100, help='traing cls with percent of training_data')
+    parser.add_argument('--n_classes', type=int, default=10, help='part classes in all the catagories')
 
     opt = parser.parse_args()
     print(opt)
 
-    USE_CUDA = True
-    main()
+    main(opt)

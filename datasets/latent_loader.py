@@ -24,31 +24,25 @@ import os
 import sys
 import numpy as np
 import h5py
-#import provider
 
-#BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-#sys.path.append(BASE_DIR)
-#ROOT_DIR = BASE_DIR
-#sys.path.append(os.path.join(ROOT_DIR, 'utils'))
-
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-dataset_main_path=os.path.abspath(os.path.join(BASE_DIR, '../cache/'))
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, '../cache/'))
 
 
 class Saved_latent_caps_loader(object):
-    def __init__(self, feature_dir, dataset, batch_size=32, npoints=2048, with_seg=False, shuffle=True, train=False, percentage=100, resized=False):
+    def __init__(self, feature_dir , batch_size=32, npoints=2048, with_seg=False, shuffle=True, train=False, percentage=100, resized=False):
         self.feature_dir = feature_dir
         self.percentage = percentage
         if(with_seg):
             if train:
-                self.h5_file=os.path.join(dataset_main_path,dataset,'features',"saved_train_with_sem_label.h5")
+                self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_train_with_sem_label.h5")
             else:
-                self.h5_file=os.path.join(dataset_main_path,dataset,'features',"saved_test_with_sem_label.h5")
+                self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_test_with_sem_label.h5")
         else:
             if train:
-                self.h5_file=os.path.join(dataset_main_path,dataset,'features',"saved_train_with_part_label.h5")
+                self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_train_with_part_label.h5")
             else:
-                self.h5_file=os.path.join(dataset_main_path,dataset,'features',"saved_test_with_part_label.h5")
+                self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_test_with_part_label.h5")
 
         if(resized):
             self.h5_file=self.h5_file+'_%s_resized.h5'%self.percentage
@@ -77,19 +71,17 @@ class Saved_latent_caps_loader(object):
 
     def _load_data_file(self, filename):
         if self.with_seg:
-            self.current_data, self.current_seg_label ,self.current_cls_label= self.load_h5(filename)
-            self.current_cls_label = np.squeeze(self.current_cls_label)
+            self.current_data, self.current_seg_label = self.load_h5(filename)
             self.batch_idx = 0                 
             if self.shuffle:
-                self.current_data, self.current_seg_label, self.current_cls_label,_ = self.shuffle_data(
-                    self.current_data, self.current_seg_label, self.current_cls_label)
+                self.current_data, self.current_seg_label, _ = self.shuffle_data(
+                    self.current_data, self.current_seg_label)
         else:           
-            self.current_data, self.current_part_label ,self.current_cls_label= self.load_h5(filename)
-            self.current_cls_label = np.squeeze(self.current_cls_label)
+            self.current_data, self.current_part_label= self.load_h5(filename)
             self.batch_idx = 0                 
             if self.shuffle:
-                self.current_data, self.current_part_label, self.current_cls_label,_ = self.shuffle_data(
-                    self.current_data, self.current_part_label, self.current_cls_label)
+                self.current_data, self.current_part_label, _ = self.shuffle_data(
+                    self.current_data, self.current_part_label)
 
     def _has_next_batch_in_file(self):
         return self.batch_idx*self.batch_size < self.current_data.shape[0]
@@ -113,17 +105,16 @@ class Saved_latent_caps_loader(object):
         end_idx = min((self.batch_idx+1) * self.batch_size, self.current_data.shape[0])
 
         data_batch = self.current_data[start_idx:end_idx, 0:self.npoints, :].copy()
-        cls_label_batch = self.current_cls_label[start_idx:end_idx].copy()
         self.batch_idx += 1
         if self.with_seg:
            seg_label_batch = self.current_seg_label[start_idx:end_idx].copy()
-           return data_batch, seg_label_batch, cls_label_batch
+           return data_batch, seg_label_batch
         else:
            part_label_batch = self.current_part_label[start_idx:end_idx].copy()
-           return data_batch, part_label_batch, cls_label_batch
+           return data_batch, part_label_batch
 
     
-    def shuffle_data(self, data, part_labels, cls_labels):
+    def shuffle_data(self, data, seg_labels):
         """ Shuffle data and labels.
             Input:
               data: B,N,... numpy array
@@ -131,28 +122,24 @@ class Saved_latent_caps_loader(object):
             Return:
               shuffled data, label and shuffle indices
         """
-        idx = np.arange(len(cls_labels))
+        idx = np.arange(len(seg_labels))
         np.random.shuffle(idx)
-        return data[idx, ...], part_labels[idx, ...],cls_labels[idx], idx
+        return data[idx, ...], seg_labels[idx, ...], idx
 
     
     
     def load_h5(self, h5_filename):
         f = h5py.File(h5_filename)
         data = f['data'][:]
-        cls_label = f['label'][:]
         seg_label = f['label_seg'][:]
         
-        return (data, seg_label,cls_label)
-
-
-
+        return (data, seg_label)
 
 if __name__ == '__main__':
     
     d = Saved_latent_caps_loader('/home/zhao/Code/dataset/pointnet_data/modelnet40_ply_hdf5_2048/')
     print(d.shuffle)
     print(d.has_next_batch())
-    ps_batch, cls_batch = d.next_batch(True)
+    ps_batch, seg_label_batch = d.next_batch(True)
     print(ps_batch.shape)
-    print(cls_batch.shape)
+    print(seg_label_batch.shape)
