@@ -34,8 +34,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
-#from ArCH import ArchDataset
-from dataloader import get_dataloader
+
 from shapenet_dataloader import get_shapenet_dataloader
 import modelnet40_loader
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
@@ -70,22 +69,6 @@ class SaveClsFile(object):
         #print args
         print(str(args))
         print('-Preparing evaluation dataset...')  
-        
-        if self.dataset_name == 'arch':
-            print('-Preparing Loading ArCH evaluation dataset...')
-            
-            # load training data
-            log_string('-Now loading ArCH training classifer dataset...')
-            train_filelist = os.path.join(self.data_dir, self.dataset_name, "svm_data_files.txt")
-            self.infer_loader_train = get_dataloader(filelist=train_filelist, batch_size=self.batch_size, 
-                                                     num_workers=args.workers, group_shuffle=False,shuffle=False)
-            log_string("training classifer set size: " + self.infer_loader_train.dataset.__len__())
-            
-            #load testing data
-            log_string('-Now loading test ArCH dataset...')
-            test_filelist = os.path.join(self.data_dir, self.dataset_name, "test_data_files.txt")
-            self.infer_loader_test = get_dataloader(filelist=test_filelist, batch_size=self.batch_size, num_workers=args.workers, group_shuffle=False, shuffle=False)
-            log_string("test set size: " + self.infer_loader_test.dataset.__len__())
        
         elif self.dataset_name == 'shapenetcorev2':
             print('-Preparing ShapeNetCore evaluation dataset...')

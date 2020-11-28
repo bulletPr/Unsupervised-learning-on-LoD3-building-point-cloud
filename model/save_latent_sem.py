@@ -32,7 +32,7 @@ ROOT_DIR = os.path.dirname(BASE_DIR)
 
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
 from s3dis_loader import S3DISDataset
-from dataloader import get_dataloader
+from arch_dataloader import get_dataloader
 
 #from open3d import *
 

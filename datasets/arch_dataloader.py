@@ -34,9 +34,9 @@ def get_dataloader(filelist, batch_size=32,
             filelist=filelist,
             num_points=num_points,
             group_shuffle=group_shuffle,
-            random_translate=False, 
-            random_rotate=False,
-            random_jitter=False)
+            random_translate=random_translate, 
+            random_rotate=random_rotate,
+            random_jitter=random_jitter)
     dataloader = torch.utils.data.DataLoader(
             dataset,
             batch_size=batch_size,

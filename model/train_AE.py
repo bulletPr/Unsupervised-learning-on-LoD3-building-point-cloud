@@ -36,7 +36,7 @@ sys.path.append(ROOT_DIR)
 
 sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
 #from ArCH import ArchDataset
-from dataloader import get_dataloader
+from arch_dataloader import get_dataloader
 from shapenet_dataloader import get_shapenet_dataloader
 
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
@@ -116,13 +116,14 @@ class Train_AE(object):
                 filepath = filelist
         
             print('-Now loading ArCH dataset...')
-            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True, random_rotate=args.use_rotate)
+            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True, 
+                                    random_rotate = args.use_rotate, random_jitter=args.use_jitter, shuffle=True)
             print("training set size: ", self.train_loader.dataset.__len__())
        
         elif self.dataset_name == 'shapenetcorev2':
             print('-Loading ShapeNetCore dataset...')
             self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = self.dataset_name, split='train', batch_size=args.batch_size, 
-                                    num_workers=args.workers, num_points=args.num_points, shuffle=True, random_rotate = args.use_rotate)
+                                    num_workers=args.workers, num_points=args.num_points, shuffle=True, random_rotate = args.use_rotate, random_jitter=args.use_jitter)
             print("training set size: ", self.train_loader.dataset.__len__())
         
         #initial model

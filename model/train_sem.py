@@ -250,7 +250,7 @@ def main(opt):
             correct_sum=0
             batch_id=0
             while test_dataset.has_next_batch():
-                latent_caps, seg_label,cls_label = test_dataset.next_batch()
+                latent_caps, seg_label = test_dataset.next_batch()
 
                 target = torch.from_numpy(seg_label.astype(np.int64))
         
