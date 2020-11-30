@@ -26,7 +26,7 @@ import torch.nn.init as init
 import torch.nn.functional as F
 import numpy as np
 import itertools
-from loss import ChamferLoss, CrossEntropyLoss
+from loss import ChamferLoss, CrossEntropyLoss, ChamferLoss_m
 
 
 # ----------------------------------------
@@ -219,7 +219,7 @@ class FoldNet_Decoder(nn.Module):
         after_fold1 = self.folding1(concate1) #(bs,3,num_points)
         concate2 = torch.cat((x, after_fold1), dim=1) #(bs, feat_dims+3, num_points)
         after_fold2 = self.folding2(concate2) #(bs, 3, num_points)
-        return after_fold2.transpose(1,2)
+        return after_fold2.transpose(1,2)  #(bs, num_points, 3)
 
 
 # ----------------------------------------
@@ -550,7 +550,10 @@ class DGCNN_FoldNet(nn.Module):
         elif args.encoder == 'pointnet':
             self.encoder = PointNetEncoder(args)
         self.decoder = FoldNet_Decoder(args)
-        self.loss = ChamferLoss()
+        if args.loss == 'ChamferLoss':
+            self.loss = ChamferLoss()
+        elif args.loss == 'ChamferLoss_m':
+            self.loss = ChamferLoss_m()
 
     def forward(self, input):
         feature, mid_fea = self.encoder(input)

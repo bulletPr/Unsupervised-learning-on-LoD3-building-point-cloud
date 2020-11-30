@@ -61,6 +61,8 @@ def get_parser():
                         help='Translate the pointcloud before training')
     parser.add_argument('--use_jitter', action='store_true',
                         help='Jitter the pointcloud before training')
+    parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
+                        help='reconstruction loss')
     parser.add_argument('--batch_size', type=int, default=16, metavar='batch_size',
                         help='Size of batch)')
     parser.add_argument('--workers', type=int, help='Number of data loading workers', default=16)

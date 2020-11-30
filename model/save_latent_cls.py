@@ -70,7 +70,7 @@ class SaveClsFile(object):
         print(str(args))
         print('-Preparing evaluation dataset...')  
        
-        elif self.dataset_name == 'shapenetcorev2':
+        if self.dataset_name == 'shapenetcorev2':
             print('-Preparing ShapeNetCore evaluation dataset...')
             # load training data
             self.infer_loader_train = get_shapenet_dataloader(root=self.data_dir, dataset_name = self.dataset_name, split='train', num_points=args.num_points,
