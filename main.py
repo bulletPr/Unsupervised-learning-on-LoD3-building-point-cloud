@@ -40,8 +40,8 @@ def get_parser():
                         help='Name of the experiment')
     parser.add_argument('--task', type=str, default='classification', metavar='N', 
                         choices=['reconstruction', 'classification','part_segmentation','sem_segmentation'])
-    parser.add_argument('--encoder', type=str, default='foldnet', metavar='N',
-                        choices=['foldnet', 'dgcnn_cls', 'dgcnn_seg'],
+    parser.add_argument('--encoder', type=str, default='foldingnet', metavar='N',
+                        choices=['foldingnet', 'dgcnn_classification', 'dgcnn_segmentation'],
                         help='Encoder to use, [foldnet, dgcnn_cls, dgcnn_seg]')
     parser.add_argument('--dropout', type=float, default=0.5,
                         help='dropout rate')
@@ -50,7 +50,7 @@ def get_parser():
     parser.add_argument('--k', type=int, default=None, metavar='N',
                         help='Num of nearest neighbors to use for KNN')
     parser.add_argument('--dataset', type=str, default='shapenetcorev2', metavar='N',
-                        choices=['arch','shapenetcorev2','modelnet40', 'shapenetpart'],
+                        choices=['arch','all_arch','shapenetcorev2','modelnet40', 'shapenetpart'],
                         help='Encoder to use, [arch, shapenetcorev2, modelnet40, shapenetpart]')
     parser.add_argument('--split', type=str, default='train', metavar='N',
                         choices=['train','test'],
@@ -107,7 +107,7 @@ if __name__ == '__main__':
             else:
                 feature_dir = args.feature_dir
             print(feature_dir)
-            svm = SVM(feature_dir, args.percentage, args.svm_dataset)
+            svm = SVM(feature_dir, args.percentage, args.svm_dataset, args.feat_dims)
             svm.classify()
         elif args.task == 'part_segmentation':
             if args.feature_dir == '':

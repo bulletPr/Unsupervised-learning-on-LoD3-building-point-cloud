@@ -1,3 +1,4 @@
+
 #
 #
 #      0=================================0
@@ -39,10 +40,16 @@ sys.path.append(BASE_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'datasets'))
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
-def ResizeDataset(path, dataset_name,percentage, n_classes, shuffle):
+def ResizeDataset(path, dataset_name,percentage, n_classes, shuffle, feat_dims):
     if dataset_name == 'modelnet40':
         original_name = ['train0.h5', 'train1.h5', 'train2.h5', 
         'train3.h5', 'train4.h5']
+    elif dataset_name == 'arch':
+        original_name = ['train0.h5', 'train1.h5', 'train2.h5', 
+        'train3.h5', 'train4.h5', 'train5.h5', 'train6.h5', 'train7.h5']
+    elif dataset_name == 's3dis':
+        original_name = ['train0.h5', 'train1.h5', 'train2.h5', 
+        'train3.h5', 'train4.h5', 'train5.h5', 'train6.h5', 'train7.h5']
     for h5_name in original_name:
         ori_name = os.path.join(path, h5_name)
         out_file_name= ori_name + "_" + str(percentage)+ "_resized.h5"
@@ -50,7 +57,7 @@ def ResizeDataset(path, dataset_name,percentage, n_classes, shuffle):
         if os.path.exists(out_file_name):
             os.remove(out_file_name)
         fw = h5py.File(out_file_name, 'w', libver='latest')
-        dset = fw.create_dataset("data", (1,512,),maxshape=(None,512), dtype='<f4')
+        dset = fw.create_dataset("data", (1,feat_dims,),maxshape=(None,feat_dims), dtype='<f4')
         dset_l = fw.create_dataset("label",(1,),maxshape=(None,),dtype='uint8')
         fw.swmr_mode = True   
         f = h5py.File(ori_name)
@@ -80,7 +87,7 @@ def ResizeDataset(path, dataset_name,percentage, n_classes, shuffle):
             label_c=cls_label[c]
             if(class_dist_count[label_c] < class_dist_new[label_c]):
                 class_dist_count[label_c]+=1
-                new_shape = (data_count+1,512,)
+                new_shape = (data_count+1,feat_dims,)
                 dset.resize(new_shape)
                 dset_l.resize((data_count+1,))
                 dset[data_count,:] = data[c]
@@ -106,13 +113,14 @@ def get_category_names(dataset_name):
 
     
 class SVM(object):
-    def __init__(self, feature_dir, percent, dataset_name):
+    def __init__(self, feature_dir, percent, dataset_name, feat_dims):
         self.feature_dir = feature_dir
         print(feature_dir)
         self.percent = percent
         self.dataset_name = dataset_name
+        self.feat_dims = feat_dims
         if(self.percent<100):
-            ResizeDataset(path = self.feature_dir, dataset_name = self.dataset_name, percentage=self.percent, n_classes=40, shuffle=True)
+            ResizeDataset(path = self.feature_dir, dataset_name = self.dataset_name, percentage=self.percent, n_classes=40, shuffle=True, feat_dims=self.feat_dims)
             self.train_path = glob(os.path.join(self.feature_dir, 'train*%s_resized.h5'%percent))
         else:
             self.train_path = glob(os.path.join(self.feature_dir, 'train*.h5'))

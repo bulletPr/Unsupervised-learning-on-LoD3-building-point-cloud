@@ -67,7 +67,7 @@ class ChamferLoss_m(nn.Module):
         super(ChamferLoss_m, self).__init__()
         self.use_cuda = torch.cuda.is_available()
 
-    def ChamferDistance(x, y):  # for example, x = batch,2025,3 y = batch,2048,3
+    def ChamferDistance(self, x, y):  # for example, x = batch,2025,3 y = batch,2048,3
         #   compute chamfer distance between tow point clouds x and y
 
         x_size = x.size()

@@ -119,7 +119,29 @@ class Train_AE(object):
             self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True, 
                                     random_rotate = args.use_rotate, random_jitter=args.use_jitter, shuffle=True)
             print("training set size: ", self.train_loader.dataset.__len__())
-       
+        
+        elif self.dataset_name == 'all_arch':
+            # initial dataset filelist
+            print('-Preparing dataset file list...')
+            if self.split == 'train':
+                filelist = os.path.join(DATA_DIR, 'arch_pointcnn_hdf5_2048', "train_data_files.txt")
+            else:
+                filelist = os.path.join(DATA_DIR, 'arch_pointcnn_hdf5_2048', "test_data_files.txt")
+
+            self.is_list_of_h5_list = not is_h5_list(filelist)
+            if self.is_list_of_h5_list:
+                self.seg_list = load_seg_list(filelist)
+                self.seg_list_idx = 0
+                filepath = self.seg_list[self.seg_list_idx]
+                self.seg_list_idx += 1
+            else:
+                filepath = filelist
+        
+            print('-Now loading all_ArCH dataset...')
+            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True, 
+                                    random_rotate = args.use_rotate, random_jitter=args.use_jitter, shuffle=True)
+            print("training set size: ", self.train_loader.dataset.__len__())
+        
         elif self.dataset_name == 'shapenetcorev2':
             print('-Loading ShapeNetCore dataset...')
             self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = self.dataset_name, split='train', batch_size=args.batch_size, 

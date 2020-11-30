@@ -68,9 +68,9 @@ def local_cov(pts, idx):
     x = x.view(batch_size*num_points, -1)[idx, :]           # (batch_size*num_points*2, 6)
     x = x.view(batch_size, num_points, -1, num_dims)        # (batch_size, num_points, k, 6)
 
-    x = torch.matmul(x[:,:,0].unsqueeze(3), x[:,:,1].unsqueeze(2))  # (batch_size, num_points, 6, 1) * (batch_size,
+    #x = torch.matmul(x[:,:,0].unsqueeze(3), x[:,:,1].unsqueeze(2))  # (batch_size, num_points, 6, 1) * (batch_size,
                                                                     # num_points, 1, 6) -> (batch_size, num_points, 6, 6)
-    # x = torch.matmul(x[:,:,1:].transpose(3, 2), x[:,:,1:])
+    x = torch.matmul(x[:,:,1:].transpose(3, 2), x[:,:,1:])
     x = x.view(batch_size, num_points, 9).transpose(2, 1)   # (batch_size, 9, num_points)
 
     x = torch.cat((pts, x), dim=1)                          # (batch_size, 12, num_points)
@@ -131,7 +131,7 @@ class FoldNet_Encoder(nn.Module):
             self.k = 16
         else:
             self.k = args.k
-        self.n = 2048 # input point cloud size
+        self.n = args.num_points # input point cloud size
         self.mlp1 = nn.Sequential(
                 nn.Conv1d(12,64,1),
                 nn.ReLU(),
@@ -183,7 +183,7 @@ class FoldNet_Decoder(nn.Module):
     def __init__(self, args):
         super(FoldNet_Decoder, self).__init__()
         self.m = 2025
-        self.meshgrid=[[-0.3,0.3,45], [-0.3,-0.3,45]]
+        self.meshgrid=[[-0.3,0.3,45], [-0.3,0.3,45]]
         self.folding1 = nn.Sequential(
                 nn.Conv1d(args.feat_dims+2, args.feat_dims, 1),
                 nn.ReLU(),
@@ -541,7 +541,7 @@ class PointNetCls(nn.Module):
 class DGCNN_FoldNet(nn.Module):
     def __init__(self, args):
         super(DGCNN_FoldNet, self).__init__()
-        if args.encoder == 'foldnet':
+        if args.encoder == 'foldingnet':
             self.encoder = FoldNet_Encoder(args)
         elif args.encoder == 'dgcnn_classification':
             self.encoder = DGCNN_Cls_Encoder(args)

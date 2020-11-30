@@ -28,7 +28,7 @@ import numpy as np
 from datetime import datetime
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
-sys.path.append(BASE_DIR)
+sys.path.append(ROOT_DIR)
 
 import tensorflow as tf
 
@@ -38,12 +38,8 @@ def load_h5_seg(h5_filename):
     label = f['label_seg'][...].astype(np.int64)
     return data, label
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--folder', '-f', help='Path to data folder')
-    args = parser.parse_args()
-    root = args.folder if args.folder else os.path.join(ROOT_DIR, 'data', 'arch_hdf5_8196')
-
+def main(args):
+    root = args.folder if args.folder else os.path.join(ROOT_DIR, 'data', 'arch_pointcnn_hdf5_8196')
     folders = [os.path.join(root, folder) for folder in ['test', 'train']]
 
     for folder in folders:
@@ -56,14 +52,14 @@ def main():
             data, label_seg = load_h5_seg(filename_txt)
             assert(data.shape[1] == label_seg.shape[1])
 
-            indices = np.random.choice(data.shape[1], 4096)
+            indices = np.random.choice(data.shape[1], args.sample_number)
             points_sampled = data[:,indices,:]
             print(points_sampled.shape)
             
             labels_sampled = label_seg[:,indices]
             print(labels_sampled.shape)
-            foldname = os.path.join(ROOT_DIR, 'data', 'arch_hdf5_%s'%args.sample_number)
-            sampled_filename = os.path.join(foldname, dataset + '_%s_sampled.h5'%args.sample_number)
+            foldname = os.path.join(ROOT_DIR, 'data', 'arch_hdf5_%s'%args.sample_number, folder)
+            sampled_filename = os.path.join(foldname, dataset[:-3] + '_%s_sampled.h5'%args.sample_number)
             file = h5py.File(sampled_filename, 'w')
             file.create_dataset('data', data=points_sampled)
             file.create_dataset('label_seg', data=labels_sampled)
@@ -73,5 +69,6 @@ def main():
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--sample_number', type=int, default=2048, help='input batch size')
+    parser.add_argument('--folder', '-f', help='Path to data folder')
     args = parser.parse_args()
     main(args)
