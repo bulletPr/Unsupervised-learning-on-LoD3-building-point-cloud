@@ -56,13 +56,14 @@ if __name__=='__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--model', type=str, default = '',  help='model path')
-    parser.add_argument('--encoder', type=str, default='foldnet', metavar='N',
-                        choices=['foldnet', 'dgcnn_cls', 'dgcnn_seg'],
-                        help='Encoder to use, [foldnet, dgcnn_cls, dgcnn_seg]')
+    parser.add_argument('--encoder', type=str, default='foldingnet', metavar='N',
+                        choices=['foldingnet', 'dgcnn_cls', 'dgcnn_seg'],
+                        help='Encoder to use, [foldingnet, dgcnn_cls, dgcnn_seg]')
     parser.add_argument('--k', type=int, default=None, metavar='N',
                         help='Num of nearest neighbors to use for KNN')
     parser.add_argument('--feat_dims', type=int, default=512, metavar='N',
                         help='Number of dims for feature ')
+    parser.add_argument('--loss', type=str, default='ChamferLoss')
     args = parser.parse_args()
     print (args)
     
@@ -87,13 +88,13 @@ if __name__=='__main__':
     for i,data in enumerate(dataloader):
         points, target = data
         points = points.cuda()
-        recon_pc, _ = foldingnet(points.view(1,2048,3))
+        recon_pc, _, _ = foldingnet(points.view(1,2048,3))
         points_show = points.cpu().detach().numpy() #(1,2048,3)
 
         #plot and save original images
         fig_ori = plt.figure()
         a1 = fig_ori.add_subplot(111,projection='3d')
-        a1.scatter(points_show[0,:,1],points_show[0,:,1],points_show[0,:,2],marker='.',s=20,c='#B8B8B8')
+        a1.scatter(points_show[0,:,0],points_show[0,:,1],points_show[0,:,2],marker='.',s=20,c='#B8B8B8')
         n_epoch = args.model[-7:-4]
         plt.savefig('rec_output/ori_%s_%d.png'%(n_epoch,i))
         
@@ -106,11 +107,11 @@ if __name__=='__main__':
         a2.scatter(re_show[0,:,0],re_show[0,:,1],re_show[0,:,2],c='#B8B8B8', marker='.', s=20)
         plt.savefig('rec_output/rec_%s_%d.png'%(n_epoch,i))
         
-        points_show = points_show.transpose(0,2,1)
-        re_show = re_show.transpose(0,2,1)
+        #points_show = points_show.transpose(0,2,1)
+        #re_show = re_show.transpose(0,2,1)
 
-        np.savetxt('rec_output/ori_%s_%d.pts'%(n_epoch,i),points_show[0])
-        np.savetxt('rec_output/rec_%s_%d.pts'%(n_epoch,i),re_show[0])
+        #np.savetxt('rec_output/ori_%s_%d.pts'%(n_epoch,i),points_show[0])
+        #np.savetxt('rec_output/rec_%s_%d.pts'%(n_epoch,i),re_show[0])
 
         #code_save = code.cpu().detach().numpy().astype(int)
         #np.savetxt('show_output/%d.bin'%i, code_save)
