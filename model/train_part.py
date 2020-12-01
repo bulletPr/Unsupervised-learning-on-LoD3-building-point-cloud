@@ -298,12 +298,16 @@ if __name__ == "__main__":
     parser.add_argument('--ae_epochs', type=int, default=100, help='choose which pre-trained ae to use')
     parser.add_argument('--latent_vec_size', type=int, default=64, help='scale of latent caps')
     parser.add_argument('--gpu_mode', action='store_true', help='Enables CUDA training')
-    parser.add_argument('--feature_dims', type=int, default=1024, help='scale of latent features')
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
     parser.add_argument('--model', type=str, default='../AE/tmp_checkpoints/shapenet_part_dataset__64caps_64vec_70.pth', help='model path')
     parser.add_argument('--dataset', type=str, default='shapenet_part', help='dataset: shapenet_part, shapenet_core13, shapenet_core55, modelent40')
     parser.add_argument('--percent_training_dataset', type=int, default=100, help='training cls with percent of training_data')
     parser.add_argument('--part_num', type=int, default=50, help='part classes in all the catagories')
+    parser.add_argument('--encoder', type=str, default='foldingnet', help='encoder use')
+    parser.add_argument('--k', type=int, default=None)
+    parser.add_argument('--feat_dims', type=int, default=1024)
+    parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
+                        help='reconstruction loss')
 
     opt = parser.parse_args()
     print(opt)

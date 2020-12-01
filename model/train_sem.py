@@ -294,6 +294,10 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='arch', help='dataset: s3dis, arch')
     parser.add_argument('--percentage', type=int, default=100, help='training cls with percent of training_data')
     parser.add_argument('--n_classes', type=int, default=10, help='semantic classes in all the catagories')
+    parser.add_argument('--encoder', type=str, default='foldingnet', help='encoder use')
+    parser.add_argument('--k', type=int, default=None)
+    parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
+                        help='reconstruction loss')
 
     opt = parser.parse_args()
     print(opt)

@@ -156,11 +156,13 @@ if __name__ == "__main__":
     parser.add_argument('--model', type=str, default='../AE/tmp_checkpoints/shapenet_part_dataset__64caps_64vec_70.pth', help='model path')
     parser.add_argument('--dataset', type=str, default='shapenet_part', help='It has to be shapenet part')
     parser.add_argument('--save_training', help='save the output latent caps of training data or test data', action='store_true')
-
     parser.add_argument('--n_classes', type=int, default=16, help='catagories of current dataset')
+    
     parser.add_argument('--enocder', type=str, default='fodlingnet', help='encoder use')
     parser.add_argument('--k', type=int, default=None)
     parser.add_argument('--feat_dims', type=int, default=1024)
+    parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
+                        help='reconstruction loss')
 
     opt = parser.parse_args()
     print(opt)
