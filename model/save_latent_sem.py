@@ -111,7 +111,7 @@ def main(args):
     #pcd = PointCloud() 
     data_size=0
     dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
-    experiment_name = args.dataset + '_' + args.encoder + '_' + str(args.latent_vec_size) + '_' + str(args.pre_ae_epochs)
+    experiment_name = 'latent_' + args.dataset + '_' + args.encoder + '_' + str(args.latent_vec_size) + '_' + str(args.pre_ae_epochs)
     out_file_path=os.path.join(dataset_main_path, experiment_name, 'features')
     if not os.path.exists(out_file_path):
         os.makedirs(out_file_path);   
@@ -182,14 +182,16 @@ if __name__ == "__main__":
     parser.add_argument('--latent_vec_size', type=int, default=1024, help='scale of latent caps')
 
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
-    parser.add_argument('--model', type=str, default='snapshot/Reconstruct_shapenet_foldingnet_1024/models/shapenetcorev2_100.pkl', help='model path')
+    parser.add_argument('--model', type=str, default='snapshot/Reconstruct_shapenet_foldingnet_1024/models/shapenetcorev2_best.pkl', help='model path')
     parser.add_argument('--dataset', type=str, default='arch', help='It has to be arch dataset')
     parser.add_argument('--save_training', help='save the output latent caps of training data or test data', action='store_true')
-
     parser.add_argument('--n_classes', type=int, default=10, help='catagories of current dataset')
-    parser.add_argument('--encoder', type=str, default='foldnet', help='encoder use')
+    
+    parser.add_argument('--encoder', type=str, default='foldingnet', help='encoder use')
     parser.add_argument('--k', type=int, default=None)
     parser.add_argument('--feat_dims', type=int, default=1024)
+    parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
+                        help='reconstruction loss')
 
     args = parser.parse_args()
     print(args)
