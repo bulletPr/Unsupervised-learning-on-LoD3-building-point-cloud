@@ -111,7 +111,7 @@ def main(args):
     #pcd = PointCloud() 
     data_size=0
     dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
-    experiment_name = 'latent_' + args.dataset + '_' + args.encoder + '_' + str(args.latent_vec_size) + '_' + str(args.pre_ae_epochs)
+    experiment_name = 'latent_' + args.model.split('/')[-1][:-4] + '_' + args.dataset + '_' + str(args.latent_vec_size)
     out_file_path=os.path.join(dataset_main_path, experiment_name, 'features')
     if not os.path.exists(out_file_path):
         os.makedirs(out_file_path);   
@@ -178,7 +178,7 @@ if __name__ == "__main__":
     import h5py
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
-    parser.add_argument('--pre_ae_epochs', type=int, default=100, help='choose which pretrained model to use')
+    parser.add_argument('--pre_ae_epochs', type=int, default=258, help='choose which pretrained model to use')
     parser.add_argument('--latent_vec_size', type=int, default=1024, help='scale of latent caps')
 
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')

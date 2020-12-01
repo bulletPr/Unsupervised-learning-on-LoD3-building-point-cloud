@@ -167,7 +167,7 @@ def main(opt):
     # load the dataset
     print('-Preparing dataset...')
     data_resized=False
-    train_path = os.path.join(ROOT_DIR, 'cache', 'archfoldnet_1024_%d'%opt.ae_epochs, 'features')
+    train_path = os.path.join(ROOT_DIR, 'cache', 'latent_'+opt.ae_epochs+'_arch_'+str(opt.feature_dims), 'features')
     if(opt.percentage<100):        
         ResizeDataset(path=train_path, percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
@@ -285,7 +285,7 @@ def main(opt):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_epochs', type=int, default=250, help='number of epochs to train for')
-    parser.add_argument('--ae_epochs', type=int, default=100, help='choose which pre-trained ae to use')
+    parser.add_argument('--ae_epochs', type=str, default='shapenetcorev2_best', help='choose which pre-trained ae to use')
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
     parser.add_argument('--gpu_mode', action='store_true', help='Enables CUDA training')
     parser.add_argument('--feature_dims', type=int, default=1024, help='scale of latent features')
@@ -294,10 +294,6 @@ if __name__ == "__main__":
     parser.add_argument('--dataset', type=str, default='arch', help='dataset: s3dis, arch')
     parser.add_argument('--percentage', type=int, default=100, help='training cls with percent of training_data')
     parser.add_argument('--n_classes', type=int, default=10, help='semantic classes in all the catagories')
-    parser.add_argument('--encoder', type=str, default='foldingnet', help='encoder use')
-    parser.add_argument('--k', type=int, default=None)
-    parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
-                        help='reconstruction loss')
 
     opt = parser.parse_args()
     print(opt)
