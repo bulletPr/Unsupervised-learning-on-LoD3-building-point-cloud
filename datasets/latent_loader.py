@@ -25,9 +25,6 @@ import sys
 import numpy as np
 import h5py
 
-ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, '../cache/'))
-
 
 class Saved_latent_caps_loader(object):
     def __init__(self, feature_dir , batch_size=32, npoints=2048, with_seg=False, shuffle=True, train=False, percentage=100, resized=False):
@@ -35,18 +32,27 @@ class Saved_latent_caps_loader(object):
         self.percentage = percentage
         if(with_seg):
             if train:
-                self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_train_with_sem_label.h5")
+                self.h5_files = [filename for filename in os.listdir(self.feature_dir)
+                                  if (filename.endswith('.h5') and filename.find('resized') == -1 and filename.find('train') != -1)]
+                #self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_train_with_sem_label.h5")
             else:
-                self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_test_with_sem_label.h5")
+                #self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_test_with_sem_label.h5")
+                self.h5_files = [filename for filename in os.listdir(self.feature_dir)
+                                  if (filename.endswith('.h5') and filename.find('resized') == -1 and filename.find('test') != -1)]
         else:
             if train:
-                self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_train_with_part_label.h5")
+                self.h5_files = [filename for filename in os.listdir(self.feature_dir)
+                                  if (filename.endswith('.h5') and filename.find('resized') == -1 and filename.find('train') != -1)]
+                #self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_train_with_part_label.h5")
             else:
-                self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_test_with_part_label.h5")
+                #self.h5_file=os.path.join(dataset_main_path,self.feature_dir,"saved_test_with_part_label.h5")
+                self.h5_files = [filename for filename in os.listdir(self.feature_dir)
+                                  if (filename.endswith('.h5') and filename.find('resized') == -1 and filename.find('test') != -1)]
 
         if(resized):
-            self.h5_file=self.h5_file+'_%s_resized.h5'%self.percentage
-             
+            #self.h5_file=self.h5_file+'_%s_resized.h5'%self.percentage
+            self.h5_files = [filename for filename in os.listdir(self.feature_dir)
+                                  if (filename.endswith('.h5') and filename.find('resized') != -1)]
             
         self.batch_size = batch_size
         self.npoints = npoints
@@ -54,20 +60,22 @@ class Saved_latent_caps_loader(object):
         self.with_seg = with_seg
 
         self.reset()
+    
+
     def reset(self):
 #        ''' reset order of h5 files '''
-#        self.file_idxs = np.arange(0, len(self.h5_files))
-#        if self.shuffle:
-#            np.random.shuffle(self.file_idxs)
+        self.file_idxs = np.arange(0, len(self.h5_files))
+        if self.shuffle:
+            np.random.shuffle(self.file_idxs)
         self.current_data = None
         self.current_sem_label = None
         self.current_part_label = None
-#        self.current_file_idx = 0
+        self.current_file_idx = 0
         self.batch_idx = 0
 
 
-#    def _get_data_filename(self):
-#        return self.h5_files[self.file_idxs[self.current_file_idx]]
+    def _get_data_filename(self):
+        return self.h5_files[self.file_idxs[self.current_file_idx]]
 
     def _load_data_file(self, filename):
         if self.with_seg:
@@ -92,11 +100,13 @@ class Saved_latent_caps_loader(object):
     def has_next_batch(self):
         # TODO: add backend thread to load data
         if (self.current_data is None ):
-#            if self.current_file_idx >= len(self.h5_files):
-#                return False
-            self._load_data_file(self.h5_file)
+            if self.current_file_idx >= len(self.h5_files):
+                return False
+            self.h5_file = os.path.join(self.feature_dir,self._get_data_filename())
+            print(self.h5_file)
+            self._load_data_file(filename = self.h5_file)
             self.batch_idx = 0
-#            self.current_file_idx += 1
+            self.current_file_idx += 1
         return self._has_next_batch_in_file()
 
     def next_batch(self):
@@ -129,7 +139,7 @@ class Saved_latent_caps_loader(object):
     
     
     def load_h5(self, h5_filename):
-        f = h5py.File(h5_filename)
+        f = h5py.File(h5_filename,'r')
         data = f['data'][:]
         seg_label = f['label_seg'][:]
         

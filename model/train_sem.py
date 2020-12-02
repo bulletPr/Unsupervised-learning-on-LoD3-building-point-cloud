@@ -167,7 +167,7 @@ def main(opt):
     # load the dataset
     print('-Preparing dataset...')
     data_resized=False
-    train_path = os.path.join(ROOT_DIR, 'cache', 'latent_'+opt.ae_epochs+'_arch_'+str(opt.feature_dims), 'features')
+    train_path = os.path.join(ROOT_DIR, 'cache', 'latent_' + opt.pre_ae_epochs + '_' + opt.dataset + '_' +str(opt.feature_dims), 'features')
     if(opt.percentage<100):        
         ResizeDataset(path=train_path, percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
@@ -285,7 +285,7 @@ def main(opt):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_epochs', type=int, default=250, help='number of epochs to train for')
-    parser.add_argument('--ae_epochs', type=str, default='shapenetcorev2_best', help='choose which pre-trained ae to use')
+    parser.add_argument('--pre_ae_epochs', type=str, default='shapenetcorev2_best', help='choose which pre-trained ae to use')
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
     parser.add_argument('--gpu_mode', action='store_true', help='Enables CUDA training')
     parser.add_argument('--feature_dims', type=int, default=1024, help='scale of latent features')

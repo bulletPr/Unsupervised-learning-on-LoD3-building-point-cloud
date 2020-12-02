@@ -21,12 +21,11 @@
 # ----------------------------------------
 import argparse
 import torch
-import torch.nn.parallel
 from torch.autograd import Variable
 import torch.optim as optim
 import sys
 import os
-from tqdm import tqdm
+import numpy as np
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 
@@ -111,24 +110,18 @@ def main(args):
     #pcd = PointCloud() 
     data_size=0
     dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
-    experiment_name = 'latent_' + args.model.split('/')[-1][:-4] + '_' + args.dataset + '_' + str(args.latent_vec_size)
+    experiment_name = 'latent_' + args.pre_ae_epochs + '_' + args.dataset + '_' + str(args.latent_vec_size)
     out_file_path=os.path.join(dataset_main_path, experiment_name, 'features')
     if not os.path.exists(out_file_path):
         os.makedirs(out_file_path);   
-    if args.save_training:
-        out_file_name=out_file_path+"/saved_train_with_sem_label.h5"
-    else:
-        out_file_name=out_file_path+"/saved_test_with_sem_label.h5"        
-    if os.path.exists(out_file_name):
-        os.remove(out_file_name)
-    fw = h5py.File(out_file_name, 'w', libver='latest')
-    dset = fw.create_dataset("data", (1, args.num_points, args.latent_vec_size,),maxshape=(None,args.num_points, args.latent_vec_size+64,), dtype='<f4')
-    dset_s = fw.create_dataset("label_seg",(1,args.num_points,),maxshape=(None,args.num_points,),dtype='uint8')
-    fw.swmr_mode = True
+    
 
 
 #  process for 'shapenet_part' or 'shapenet_core13'
     ae_net.eval()
+    n = 0
+    feature_set = []
+    label_set = []
     for batch_id, data in enumerate(dataloader):
     #for batch_id, data in (enumerate(dataloader), total=len(dataloader)):
         points, sem_label= data
@@ -143,29 +136,30 @@ def main(args):
         _, code, mid_features = ae_net(points)
 
         con_code = torch.cat([code.view(-1,args.latent_vec_size,1).repeat(1,1,args.num_points), mid_features],1)
-       
-        # For each resonstructed point, find the nearest point in the input pointset, 
-        # use their part label to annotate the resonstructed point,
-        # Then after checking which capsule reconstructed this point, use the part label to annotate this capsule
-        #reconstructions=reconstructions.data.cpu()   
-        points=points.data.cpu()
         
-        # write the output latent caps and cls into file
-        data_size=data_size+points.size(0)
-        new_shape = (data_size,args.num_points, args.latent_vec_size+64, )
-        dset.resize(new_shape)
-        dset_s.resize((data_size,args.num_points,))
-        
-        code_ = con_code.transpose(2,1).cpu().detach().numpy()
-        target_ = sem_label.cpu().detach().numpy()
-        dset[data_size-points.size(0):data_size,:,:] = code_
-        dset_s[data_size-points.size(0):data_size] = target_
-    
-        dset.flush()
-        dset_s.flush()
-        print('accumalate of batch %d, and datasize is (%d, %d), dset_s size is: (%d,%d) ' % ((batch_id), (dset.shape[0]), (dset.shape[1]), (dset_s.shape[0]), (dset_s.shape[1])))
-           
-    fw.close()   
+        # write the output latent and cls into file
+        feature_set.append(con_code.transpose(2,1).detach().cpu().numpy())
+        label_set.append(sem_label.cpu().detach().numpy())
+
+        if ((batch_id+1)*args.batch_size % 256) == 0 or (batch_id+1)==len(dataloader):
+            feature_set = np.concatenate(feature_set, axis=0)
+            label_set = np.concatenate(label_set, axis=0)
+            if args.save_training:
+                out_file_name=out_file_path+"/saved_train_with_sem_label_"+ str(n)+".h5"
+            else:
+                out_file_name=out_file_path+"/saved_test_with_sem_label_"+ str(n)+".h5"        
+            if os.path.exists(out_file_name):
+                os.remove(out_file_name)
+            fw = h5py.File(out_file_name, 'w', libver='latest')
+            fw['data'] = feature_set
+            fw['label_seg'] = label_set
+            fw.close()
+            n+=1
+            log_string('accumalate of batch %d, and datasize is %s, label size is: %s ' % ((batch_id), str(feature_set.shape), str(label_set.shape)))
+            print('latent set {n} for segmentation saved')
+            feature_set = []
+            label_set = []
+    print("finish generating latent set for SVM.")  
 
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','save_sem_latent_log.txt'), 'w')
 def log_string(out_str):
@@ -178,7 +172,7 @@ if __name__ == "__main__":
     import h5py
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
-    parser.add_argument('--pre_ae_epochs', type=int, default=258, help='choose which pretrained model to use')
+    parser.add_argument('--pre_ae_epochs', type=str, default='shapenetcorev2_best', help='choose which pretrained model to use')
     parser.add_argument('--latent_vec_size', type=int, default=1024, help='scale of latent caps')
 
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')

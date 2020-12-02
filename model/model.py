@@ -131,7 +131,7 @@ class FoldNet_Encoder(nn.Module):
             self.k = 16
         else:
             self.k = args.k
-        self.n = args.num_points # input point cloud size
+        self.n = 2048 # input point cloud size
         self.mlp1 = nn.Sequential(
                 nn.Conv1d(12,64,1),
                 nn.ReLU(),
