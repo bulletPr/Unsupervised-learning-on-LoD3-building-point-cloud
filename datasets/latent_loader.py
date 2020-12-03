@@ -68,7 +68,7 @@ class Saved_latent_caps_loader(object):
         if self.shuffle:
             np.random.shuffle(self.file_idxs)
         self.current_data = None
-        self.current_sem_label = None
+        self.current_seg_label = None
         self.current_part_label = None
         self.current_file_idx = 0
         self.batch_idx = 0
@@ -93,6 +93,9 @@ class Saved_latent_caps_loader(object):
 
     def _has_next_batch_in_file(self):
         return self.batch_idx*self.batch_size < self.current_data.shape[0]
+        #return self.batch_idx < self.num_batches
+    def _has_next_file(self):
+        return current_file_idx <= len(h5_files)
 
     def num_channel(self):
         return 3
@@ -107,8 +110,11 @@ class Saved_latent_caps_loader(object):
             self._load_data_file(filename = self.h5_file)
             self.batch_idx = 0
             self.current_file_idx += 1
-        return self._has_next_batch_in_file()
+            return self._has_next_file
+        else:
+            return self._has_next_batch_in_file()
 
+    
     def next_batch(self):
         ''' returned dimension may be smaller than self.batch_size '''
         start_idx = self.batch_idx * self.batch_size
@@ -118,6 +124,9 @@ class Saved_latent_caps_loader(object):
         self.batch_idx += 1
         if self.with_seg:
            seg_label_batch = self.current_seg_label[start_idx:end_idx].copy()
+           if end_idx == self.current_data.shape[0]:
+                self.current_data= None
+                self.current_seg_label = None
            return data_batch, seg_label_batch
         else:
            part_label_batch = self.current_part_label[start_idx:end_idx].copy()
@@ -142,12 +151,12 @@ class Saved_latent_caps_loader(object):
         f = h5py.File(h5_filename,'r')
         data = f['data'][:]
         seg_label = f['label_seg'][:]
-        
+        f.close()
         return (data, seg_label)
 
 if __name__ == '__main__':
     
-    d = Saved_latent_caps_loader('/home/zhao/Code/dataset/pointnet_data/modelnet40_ply_hdf5_2048/')
+    d = Saved_latent_caps_loader('cache/latent_shapenetcorev2_best_arch_1024/features')
     print(d.shuffle)
     print(d.has_next_batch())
     ps_batch, seg_label_batch = d.next_batch(True)
