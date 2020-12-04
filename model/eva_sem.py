@@ -139,16 +139,14 @@ def main(opt):
 
         # use the pre-trained AE to encode the point cloud into latent capsules
         points_ = Variable(points)
-        #points_ = points_.transpose(2, 1)
+        target = target.long()
         if USE_CUDA:
             points_ = points_.cuda()
 
         _, latent_caps, mid_features = ae_net(points_)
         #reconstructions=reconstructions.data.cpu()
-        con_code = torch.cat([code.view(-1,args.latent_vec_size,1).repeat(1,1,args.num_points), mid_features],1)
-
-        latent_caps=con_code.cpu().detach().numpy()        
-        target = torch.from_numpy(seg_label.astype(np.int64))
+        con_code = torch.cat([code.view(-1,args.latent_vec_size,1).repeat(1,1,args.num_points), mid_features],1).cpu().detach().numpy()
+        latent_caps = torch.from_numpy(con_code).float()
         # predict the part class per capsule
         #latent_caps=latent_caps.transpose(2, 1)
         output = sem_seg_net(latent_caps)        

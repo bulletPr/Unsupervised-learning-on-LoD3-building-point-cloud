@@ -234,11 +234,9 @@ def main(opt):
             # use the pre-trained AE to encode the point cloud into latent capsules
             points_ = Variable(points)
             target = target.long()
-            #print(target)
             if opt.gpu_mode:
                 points_ = points_.cuda()
             _, latent_caps, mid_features = ae_net(points_)
-            #reconstructions=reconstructions.data.cpu()
             con_code = torch.cat([latent_caps.view(-1,opt.feat_dims,1).repeat(1,1,opt.num_points), mid_features],1).cpu().detach().numpy()
             latent_caps = torch.from_numpy(con_code).float()
             
@@ -250,16 +248,14 @@ def main(opt):
     
 # forward
             optimizer.zero_grad()
-            #latent_caps=latent_caps.transpose(2, 1)# consider the capsule vector size as the channel in the network
             output_digit =sem_seg_net(latent_caps)
             output_digit = output_digit.view(-1, opt.n_classes)        
-            #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
     
             target= target.view(-1,1)[:,0]
             train_loss = F.nll_loss(output_digit, target)
             train_loss.backward()
             optimizer.step()
-            #print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
+            print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
            
             pred_choice = output_digit.data.cpu().max(1)[1]
             correct = pred_choice.eq(target.data.cpu()).cpu().sum()
@@ -287,7 +283,6 @@ def main(opt):
                 if opt.gpu_mode:
                     points_ = points_.cuda()
                 _, latent_caps, mid_features = ae_net(points_)
-                #reconstructions=reconstructions.data.cpu()
                 con_code = torch.cat([latent_caps.view(-1,opt.feat_dims,1).repeat(1,1,opt.num_points), mid_features],1).cpu().detach().numpy()
                 latent_caps = torch.from_numpy(con_code).float()
                 if(latent_caps.size(0)<opt.batch_size):
@@ -301,7 +296,7 @@ def main(opt):
                 output = output.view(-1, opt.n_classes)        
                 target= target.view(-1,1)[:,0]
         
-#                print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
+                print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(test_dataset)/opt.batch_size, train_loss.item()))
                
                 pred_choice = output.data.cpu().max(1)[1]
                 correct = pred_choice.eq(target.data.cpu()).cpu().sum()                
@@ -310,9 +305,6 @@ def main(opt):
             _snapshot(save_dir, sem_seg_net, epoch + 1, opt)
 
             print(' accuracy of epoch %d is: %f' %(epoch,correct_sum/float((batch_id+1)*opt.batch_size * opt.num_points)))
-             
-        train_dataset.reset()
-        test_dataset.reset()
     print("Training finish!... save training results")
         
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','segment_net_train_log.txt'), 'a')
