@@ -124,7 +124,7 @@ def _snapshot(save_dir, model, epoch, opt):
             name = key
         new_state_dict[name] = val
     save_dir = os.path.join(save_dir, opt.dataset)
-    torch.save(new_state_dict, save_dir+'% of_training_data_at_epoch' + str(epoch) + '.pkl')
+    torch.save(new_state_dict, save_dir+'_training_data_at_epoch_' + str(epoch) + '.pkl')
     print(f"Save model to {save_dir}_{str(epoch)}.pkl")
 
 def main(opt):

@@ -41,6 +41,7 @@ from semseg_net import SemSegNet
 #import h5py
 import json
 
+DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
 def load_pretrain(model, pretrain):
         state_dict = torch.load(pretrain, map_location='cpu')
@@ -92,7 +93,7 @@ def main(opt):
 # load the model for capsule wised part segmentation      
     sem_seg_net = SemSegNet(num_class=opt.n_classes, with_rgb=False)    
     if opt.seg_model != '':
-        sem_seg_net=load_pretrain(sem_seg_net, os.path.join(ROOT_DIR,opt.model))
+        sem_seg_net=load_pretrain(sem_seg_net, os.path.join(ROOT_DIR,opt.seg_model))
     if USE_CUDA:
         sem_seg_net = sem_seg_net.cuda()
     sem_seg_net = sem_seg_net.eval()    
@@ -100,26 +101,25 @@ def main(opt):
 
     if opt.dataset=='s3dis':
         print('-Preparing Loading s3dis evaluation dataset...')
-        root = '../data/stanford_indoor3d/'
+        root = os.path.join(DATA_DIR,'stanford_indoor3d')
         NUM_CLASSES = 13
         NUM_POINT = opt.num_points
         BATCH_SIZE = opt.batch_size
         dataset = S3DISDataset(split='test', data_root=root, num_point=NUM_POINT, rgb=False, test_area=5, block_size=1.0, sample_rate=1.0, transform=None)
         log_string("start loading test data ...")
         dataLoader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True, worker_init_fn = lambda x: np.random.seed(x+int(time.time())))
-        log_string("classifer set size: " + dataloader.dataset.__len__())
+        log_string("classifer set size: " + str(dataloader.dataset.__len__()))
 
     elif opt.dataset == 'arch':
         print('-Preparing Loading ArCH evaluation dataset...')
-        data_root = '../data/'
         NUM_CLASSES = 10
         log_string('-Now loading test ArCH dataset...')
-        filelist = os.path.join(data_root, "arch_pointcnn_hdf5_2048", "test_data_files.txt")
+        filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "test_data_files.txt")
         
         # load training data
         dataloader = arch_dataloader.get_dataloader(filelist=filelist, batch_size=opt.batch_size, 
                                                 num_workers=4, group_shuffle=False,shuffle=True)
-        log_string("classifer set size: " + dataloader.dataset.__len__())
+        log_string("classifer set size: " + str(dataloader.dataset.__len__()))
 
     #pcd_colored = PointCloud()                   
     #pcd_ori_colored = PointCloud()        
@@ -132,7 +132,7 @@ def main(opt):
     correct_sum=0
     for batch_id, data in enumerate(dataloader):
 
-        points, seg_label = data        
+        points, target = data        
         
         if(points.size(0)<opt.batch_size):
             break
@@ -145,12 +145,14 @@ def main(opt):
 
         _, latent_caps, mid_features = ae_net(points_)
         #reconstructions=reconstructions.data.cpu()
-        con_code = torch.cat([code.view(-1,args.latent_vec_size,1).repeat(1,1,args.num_points), mid_features],1).cpu().detach().numpy()
+        con_code = torch.cat([latent_caps.view(-1,opt.feat_dims,1).repeat(1,1,opt.num_points), mid_features],1).cpu().detach().numpy()
         latent_caps = torch.from_numpy(con_code).float()
         # predict the part class per capsule
-        #latent_caps=latent_caps.transpose(2, 1)
+        latent_caps, target = Variable(latent_caps), Variable(target)
+        if USE_CUDA:
+            latent_caps,target = latent_caps.cuda(), target.cuda()
         output = sem_seg_net(latent_caps)        
-        output_digit = output_digit.view(-1, opt.n_classes)        
+        output_digit = output.view(-1, opt.n_classes)        
         #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
     
         target= target.view(-1,1)[:,0]
@@ -162,18 +164,22 @@ def main(opt):
         print(' accuracy is: %f' %(correct_sum/float(opt.batch_size*(batch_id+1)*opt.num_points)))
 
 
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','segment_net_evaluation_log.txt'), 'a')
+def log_string(out_str):
+    LOG_FOUT.write(out_str + '\n')
+    LOG_FOUT.flush()
+    print(out_str)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
-    parser.add_argument('--latent_caps_size', type=int, default=64, help='number of latent caps')
-    parser.add_argument('--latent_vec_size', type=int, default=64, help='scale of latent caps')
     parser.add_argument('--encoder', type=str, default='foldingnet', help='encoder use')
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
-    parser.add_argument('--seg_model', type=str, default='snapshot/Semantic_segmentation_arch_1024_100/arch_training_data_at_epoch136.pkl', help='model path for the pre-trained part segmentation network')
+    parser.add_argument('--seg_model', type=str, default='snapshot/Semantic_segmentation_arch_1024_100/models/arch_training_data_at_epoch136.pkl', help='model path for the pre-trained part segmentation network')
     parser.add_argument('--model', type=str, default='snapshot/Reconstruct_shapenet_foldingnet_1024/models/shapenetcorev2_best.pkl', help='model path')
     parser.add_argument('--dataset', type=str, default='arch', help='dataset: arch, shapenet_part, shapenet_core13, shapenet_core55, modelent40')
     parser.add_argument('--n_classes', type=int, default=10, help='part classes in all the catagories')
-    parser.add_argument('--class_choice', type=str, default='Airplane', help='choose the class to eva')
+    parser.add_argument('--class_choice', type=str, default='arch', help='choose the class to eva')
     parser.add_argument('--k', type=int, default=None)
     parser.add_argument('--feat_dims', type=int, default=1024)
     parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
