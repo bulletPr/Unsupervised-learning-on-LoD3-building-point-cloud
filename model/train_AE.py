@@ -285,7 +285,7 @@ class Train_AE(object):
     def _get_lr(self, group=0):
         return self.optimizer.param_groups[group]['lr']
 
-LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','train_log.txt'), 'w')
+LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','ae_train_log.txt'), 'a')
 def log_string(out_str):
     LOG_FOUT.write(out_str + '\n')
     LOG_FOUT.flush()

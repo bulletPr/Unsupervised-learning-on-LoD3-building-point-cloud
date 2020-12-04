@@ -32,7 +32,6 @@ import statistics
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
-sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../model')))
 import s3dis_loader
 import arch_dataloader
 
@@ -55,6 +54,7 @@ def load_pretrain(model, pretrain):
             new_state_dict[name] = val
         model.load_state_dict(new_state_dict)
         print(f"Load model from {pretrain}") 
+        return model
 
 
 def main(opt):
@@ -92,7 +92,7 @@ def main(opt):
 # load the model for capsule wised part segmentation      
     sem_seg_net = SemSegNet(num_class=opt.n_classes, with_rgb=False)    
     if opt.seg_model != '':
-        sem_seg_net.load_pretrain(sem_seg_net, opt.model)
+        sem_seg_net=load_pretrain(sem_seg_net, os.path.join(ROOT_DIR,opt.model))
     if USE_CUDA:
         sem_seg_net = sem_seg_net.cuda()
     sem_seg_net = sem_seg_net.eval()    
@@ -143,9 +143,8 @@ def main(opt):
         if USE_CUDA:
             points_ = points_.cuda()
 
-        reconstructions, latent_caps, mid_features = ae_net(points_)
-        reconstructions=reconstructions.data.cpu()
-        
+        _, latent_caps, mid_features = ae_net(points_)
+        #reconstructions=reconstructions.data.cpu()
         con_code = torch.cat([code.view(-1,args.latent_vec_size,1).repeat(1,1,args.num_points), mid_features],1)
 
         latent_caps=con_code.cpu().detach().numpy()        
@@ -156,7 +155,7 @@ def main(opt):
         output_digit = output_digit.view(-1, opt.n_classes)        
         #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
     
-        target= target.view(-1,1)[:,0] - 1
+        target= target.view(-1,1)[:,0]
         pred_choice = output_digit.data.cpu().max(1)[1]
         
         # calculate the accuracy with the GT
@@ -168,9 +167,6 @@ def main(opt):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
-
-    parser.add_argument('--prim_caps_size', type=int, default=1024, help='number of primary point caps')
-    parser.add_argument('--prim_vec_size', type=int, default=16, help='scale of primary point caps')
     parser.add_argument('--latent_caps_size', type=int, default=64, help='number of latent caps')
     parser.add_argument('--latent_vec_size', type=int, default=64, help='scale of latent caps')
     parser.add_argument('--encoder', type=str, default='foldingnet', help='encoder use')
