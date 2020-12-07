@@ -260,7 +260,7 @@ def main(opt):
             pred_choice = output_digit.data.cpu().max(1)[1]
             correct = pred_choice.eq(target.data.cpu()).cpu().sum()
             batch_id+=1
-            n_batch= train_dataset.dataset.__len__() // opt.batch_size + 1
+            n_batch= train_dataset.dataset.__len__() // opt.batch_size
             print('[%d: %d/%d] loss: %f accuracy: %f' %(epoch, batch_id, n_batch, train_loss.item(), correct.item()/float(opt.batch_size * opt.num_points)))
             # save tensorboard
             total_time = time.time()-start_time
