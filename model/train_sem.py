@@ -201,7 +201,7 @@ def main(opt):
     ae_net=ae_net.eval()
  
     #initial segmentation model
-    sem_seg_net = SemSegNet(num_class=opt.n_classes, with_rgb=False)
+    sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, with_rgb=False)
     #load pretrained model
     if opt.model != '':
         sem_seg_net = load_pretrain(sem_seg_net, opt.model)            
@@ -215,7 +215,7 @@ def main(opt):
     n_batch = 0
     # start epoch index
     if opt.model != '':
-        start_epoch = op.model[-7:-4]
+        start_epoch = opt.model[-7:-4]
         if start_epoch[0] == '_':
             start_epoch = start_epoch[1:]
         start_epoch=int(start_epoch)
@@ -225,18 +225,24 @@ def main(opt):
     print('training start!!!')
     start_time = time.time()
     loss = []
+    total_time = []
 
     for epoch in range(start_epoch, opt.n_epochs):
         batch_id = 0
+        train_acc_epoch, train_iou_epoch, test_acc_epoch, test_iou_epoch = [], [], [], []
+        loss_buf = []
         sem_seg_net=sem_seg_net.train()
         for iter, data in enumerate(train_dataset):
+            
             points, target = data
             # use the pre-trained AE to encode the point cloud into latent capsules
             points_ = Variable(points)
             target = target.long()
+            #print(target)
             if opt.gpu_mode:
                 points_ = points_.cuda()
             _, latent_caps, mid_features = ae_net(points_)
+            #reconstructions=reconstructions.data.cpu()
             con_code = torch.cat([latent_caps.view(-1,opt.feat_dims,1).repeat(1,1,opt.num_points), mid_features],1).cpu().detach().numpy()
             latent_caps = torch.from_numpy(con_code).float()
             
@@ -248,28 +254,35 @@ def main(opt):
     
 # forward
             optimizer.zero_grad()
+            #latent_caps=latent_caps.transpose(2, 1)# consider the capsule vector size as the channel in the network
             output_digit =sem_seg_net(latent_caps)
             output_digit = output_digit.view(-1, opt.n_classes)        
+            #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
     
             target= target.view(-1,1)[:,0]
             train_loss = F.nll_loss(output_digit, target)
             train_loss.backward()
             optimizer.step()
-            print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
+            #print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
            
             pred_choice = output_digit.data.cpu().max(1)[1]
             correct = pred_choice.eq(target.data.cpu()).cpu().sum()
+            train_acc_epoch.append(correct.item() / float(opt.batch_size*opt.num_points))
+            train_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
             batch_id+=1
             n_batch= train_dataset.dataset.__len__() // opt.batch_size
-            print('[%d: %d/%d] loss: %f accuracy: %f' %(epoch, batch_id, n_batch, train_loss.item(), correct.item()/float(opt.batch_size * opt.num_points)))
-            # save tensorboard
-            total_time = time.time()-start_time
-            print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch, total_time))
-            loss.append(train_loss.detach().cpu().numpy())
-            writer.add_scalar('Train Loss', loss[-1], epoch)
-            writer.add_scalar('Epoch Time', np.mean(total_time))
-            writer.add_scalar('Accuracy', correct.item()/float(opt.batch_size * opt.num_points))
-
+            loss_buf.append(train_loss.detach().cpu().numpy())
+            print('[%d: %d/%d] | train loss: %f | train accuracy: %f | train iou: %f' %(epoch, iter+1, n_batch, np.mean(loss_buf), correct.item()/float(opt.batch_size * opt.num_points),correct.item() / float(2*opt.batch_size*opt.num_points-correct.item())))
+        # save tensorboard
+        total_time.append(time.time()-start_time)
+        print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch, total_time[0]))
+        loss.append(np.mean(loss_buf))
+        writer.add_scalar('Train Loss', loss[-1], epoch)
+        writer.add_scalar('Epoch Time', np.mean(total_time), epoch)
+        writer.add_scalar('Train Accuracy', np.mean(train_acc_epoch), epoch)
+        writer.add_scalar('Train IoU', np.mean(train_iou_epoch), epoch)
+        
+        print('epoch %d | mean train accuracy: %f | mean train IoU: %f' %(epoch, np.mean(train_acc_epoch, np.mean(train_iou_epoch))))
         
         if (epoch+1) % opt.snapshot_interval == 0 or epoch == 0:    
             sem_seg_net=sem_seg_net.eval()    
@@ -283,6 +296,7 @@ def main(opt):
                 if opt.gpu_mode:
                     points_ = points_.cuda()
                 _, latent_caps, mid_features = ae_net(points_)
+                #reconstructions=reconstructions.data.cpu()
                 con_code = torch.cat([latent_caps.view(-1,opt.feat_dims,1).repeat(1,1,opt.num_points), mid_features],1).cpu().detach().numpy()
                 latent_caps = torch.from_numpy(con_code).float()
                 if(latent_caps.size(0)<opt.batch_size):
@@ -296,15 +310,16 @@ def main(opt):
                 output = output.view(-1, opt.n_classes)        
                 target= target.view(-1,1)[:,0]
         
-                print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(test_dataset)/opt.batch_size, train_loss.item()))
+#                print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
                
                 pred_choice = output.data.cpu().max(1)[1]
                 correct = pred_choice.eq(target.data.cpu()).cpu().sum()                
-                correct_sum=correct_sum+correct.item()
-                batch_id+=1
+                #correct_sum=correct_sum+correct.item()
+                test_acc_epoch.append(correct.item() / float(opt.batch_size*opt.num_points))
+                train_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
             _snapshot(save_dir, sem_seg_net, epoch + 1, opt)
 
-            print(' accuracy of epoch %d is: %f' %(epoch,correct_sum/float((batch_id+1)*opt.batch_size * opt.num_points)))
+            print('epoch %d | mean test accuracy: %f | mean test IoU: %f' %(epoch, np.mean(test_acc_epoch, np.mean(test_iou_epoch))))
     print("Training finish!... save training results")
         
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','segment_net_train_log.txt'), 'a')
