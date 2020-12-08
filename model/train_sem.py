@@ -263,31 +263,28 @@ def main(opt):
             train_loss = F.nll_loss(output_digit, target)
             train_loss.backward()
             optimizer.step()
-            #print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
-           
+
             pred_choice = output_digit.data.cpu().max(1)[1]
             correct = pred_choice.eq(target.data.cpu()).cpu().sum()
             train_acc_epoch.append(correct.item() / float(opt.batch_size*opt.num_points))
             train_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
-            batch_id+=1
             n_batch= train_dataset.dataset.__len__() // opt.batch_size
             loss_buf.append(train_loss.detach().cpu().numpy())
-            print('[%d: %d/%d] | train loss: %f | train accuracy: %f | train iou: %f' %(epoch, iter+1, n_batch, np.mean(loss_buf), correct.item()/float(opt.batch_size * opt.num_points),correct.item() / float(2*opt.batch_size*opt.num_points-correct.item())))
+            print('[%d: %d/%d] | train loss: %f | train accuracy: %f | train iou: %f' %(epoch+1, iter+1, n_batch, np.mean(loss_buf), correct.item()/float(opt.batch_size * opt.num_points),correct.item() / float(2*opt.batch_size*opt.num_points-correct.item())))
         # save tensorboard
         total_time.append(time.time()-start_time)
-        print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch, total_time[0]))
+        print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch+1, total_time[0]))
         loss.append(np.mean(loss_buf))
-        writer.add_scalar('Train Loss', loss[-1], epoch)
-        writer.add_scalar('Epoch Time', np.mean(total_time), epoch)
-        writer.add_scalar('Train Accuracy', np.mean(train_acc_epoch), epoch)
-        writer.add_scalar('Train IoU', np.mean(train_iou_epoch), epoch)
+        writer.add_scalar('Train Loss', loss[-1], epoch+1)
+        writer.add_scalar('Epoch Time', np.mean(total_time), epoch+1)
+        writer.add_scalar('Train Accuracy', np.mean(train_acc_epoch), epoch+1)
+        writer.add_scalar('Train IoU', np.mean(train_iou_epoch), epoch+1)
         
-        print('epoch %d | mean train accuracy: %f | mean train IoU: %f' %(epoch, np.mean(train_acc_epoch, np.mean(train_iou_epoch))))
+        print('epoch %d | mean train accuracy: %f | mean train IoU: %f' %(epoch+1, np.mean(train_acc_epoch), np.mean(train_iou_epoch)))
         
         if (epoch+1) % opt.snapshot_interval == 0 or epoch == 0:    
             sem_seg_net=sem_seg_net.eval()    
             correct_sum=0
-            batch_id=0
             for iter, data in enumerate(test_dataset):
                 points, target = data
                 # use the pre-trained AE to encode the point cloud into latent capsules
@@ -309,17 +306,15 @@ def main(opt):
                 output=sem_seg_net(latent_caps)
                 output = output.view(-1, opt.n_classes)        
                 target= target.view(-1,1)[:,0]
-        
-#                print('bactch_no:%d/%d, train_loss: %f ' % (batch_id, len(train_dataloader)/opt.batch_size, train_loss.item()))
-               
+             
                 pred_choice = output.data.cpu().max(1)[1]
                 correct = pred_choice.eq(target.data.cpu()).cpu().sum()                
                 #correct_sum=correct_sum+correct.item()
                 test_acc_epoch.append(correct.item() / float(opt.batch_size*opt.num_points))
-                train_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
+                test_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
             _snapshot(save_dir, sem_seg_net, epoch + 1, opt)
 
-            print('epoch %d | mean test accuracy: %f | mean test IoU: %f' %(epoch, np.mean(test_acc_epoch, np.mean(test_iou_epoch))))
+            print('epoch %d | mean test accuracy: %f | mean test IoU: %f' %(epoch+1, np.mean(test_acc_epoch), np.mean(test_iou_epoch)))
     print("Training finish!... save training results")
         
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','segment_net_train_log.txt'), 'a')
@@ -346,7 +341,7 @@ if __name__ == "__main__":
     parser.add_argument('--feat_dims', type=int, default=1024)
     parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
                         help='reconstruction loss')
-    parser.add_argument('--snapshot_interval', type=int, default=1, metavar='N',
+    parser.add_argument('--snapshot_interval', type=int, default=5, metavar='N',
                         help='Save snapshot interval ')
 
     opt = parser.parse_args()
