@@ -37,10 +37,12 @@ import arch_dataloader
 
 from model import DGCNN_FoldNet
 from semseg_net import SemSegNet
+from  pc_utils import write_ply
 
 #import h5py
 import json
-
+ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.append(ROOT_DIR)
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
 def load_pretrain(model, pretrain):
@@ -62,13 +64,18 @@ def main(opt):
     USE_CUDA = True
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     blue = lambda x:'\033[94m' + x + '\033[0m'
-    if opt.dataset == 's3dis':
-        cat_no = {'ceiling': 0,'floor': 1,'wall': 2,'beam': 3,'column': 4,'window': 5,'door': 6,'table': 7,
-        'chair':8,'sofa':9,'bookcase':10,'board':11,'clutter':12}
-    elif opt.dataset == 'arch':
-        cat_no={"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}    
+    cat_no = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}
+
+    experiment_id = 'Semantic_segmentation_'+ opt.encoder +'_' +opt.pre_ae_epochs + '_' + str(opt.feat_dims) + '_' + opt.dataset+'_' + str(opt.percentage)+'_percent'
+    output_root = 'output/%s' %experiment_id
+    save_dir = os.path.join(ROOT_DIR, output_root, 'points/')
+    save_dir.mkdir(exist_ok=True)
     
-    #generate part label one-hot correspondence from the catagory:
+    if args.visual:
+        fout_name = os.path.join(save_dir, 'Scene_B' + '_pred')
+        fout_gt_name = os.path.join(save_dir, 'Scene_B' + '_gt')
+    
+# generate part label one-hot correspondence from the catagory:
     if opt.dataset == 's3dis':
         classes = ['ceiling','floor','wall','beam','column','window','door','table','chair','sofa','bookcase','board','clutter']
         class2label = {cls: i for i,cls in enumerate(classes)}
@@ -76,9 +83,12 @@ def main(opt):
         seg_label_to_cat = {}
         for i,cat in enumerate(seg_classes.keys()):
             seg_label_to_cat[i] = cat
-
-    #colors = plt.cm.tab10((np.arange(10)).astype(int))
-    #blue = lambda x:'\033[94m' + x + '\033[0m'
+    elif opt.dataset == 'arch':
+        class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}
+        seg_classes = class2label
+        seg_label_to_cat = {}
+        for i,cat in enumerate(seg_classes.keys()):
+            seg_label_to_cat[i] = cat
 
 # load the model for point auto encoder    
     ae_net = DGCNN_FoldNet(opt)
@@ -87,8 +97,7 @@ def main(opt):
     if USE_CUDA:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         ae_net = ae_net.cuda()
-    ae_net=ae_net.eval()
- 
+    ae_net=ae_net.eval() 
     
 # load the model for capsule wised part segmentation      
     sem_seg_net = SemSegNet(num_class=opt.n_classes, with_rgb=False)    
@@ -97,8 +106,8 @@ def main(opt):
     if USE_CUDA:
         sem_seg_net = sem_seg_net.cuda()
     sem_seg_net = sem_seg_net.eval()    
-    
 
+# load dataset
     if opt.dataset=='s3dis':
         print('-Preparing Loading s3dis evaluation dataset...')
         root = os.path.join(DATA_DIR,'stanford_indoor3d')
@@ -118,22 +127,22 @@ def main(opt):
         
         # load training data
         dataloader = arch_dataloader.get_dataloader(filelist=filelist, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False,shuffle=True)
+                                                num_workers=4, group_shuffle=False,shuffle=False)
         log_string("classifer set size: " + str(dataloader.dataset.__len__()))
 
-    #pcd_colored = PointCloud()                   
-    #pcd_ori_colored = PointCloud()        
-    #rotation_angle=-np.pi/4
-    #cosval = np.cos(rotation_angle)
-    #sinval = np.sin(rotation_angle)           
-    #flip_transforms  = [[cosval, 0, sinval,-1],[0, 1, 0,0],[-sinval, 0, cosval,0],[0, 0, 0, 1]]
-    #flip_transformt  = [[cosval, 0, sinval,1],[0, 1, 0,0],[-sinval, 0, cosval,0],[0, 0, 0, 1]]
-
     correct_sum=0
+    total_seen_class = [0 for _ in range(NUM_CLASSES)]
+    total_correct_class = [0 for _ in range(NUM_CLASSES)]
+    total_iou_deno_class = [0 for _ in range(NUM_CLASSES)]
+    points_collector = []
+    pd_labels_collector = []
+    gt_labels_collector = []
     for batch_id, data in enumerate(dataloader):
-
-        points, target = data        
+        total_seen_class_tmp = [0 for _ in range(NUM_CLASSES)]
+        total_correct_class_tmp = [0 for _ in range(NUM_CLASSES)]
+        total_iou_deno_class_tmp = [0 for _ in range(NUM_CLASSES)]
         
+        points, target = data        
         if(points.size(0)<opt.batch_size):
             break
 
@@ -144,7 +153,7 @@ def main(opt):
             points_ = points_.cuda()
 
         _, latent_caps, mid_features = ae_net(points_)
-        #reconstructions=reconstructions.data.cpu()
+
         con_code = torch.cat([latent_caps.view(-1,opt.feat_dims,1).repeat(1,1,opt.num_points), mid_features],1).cpu().detach().numpy()
         latent_caps = torch.from_numpy(con_code).float()
         # predict the part class per capsule
@@ -159,9 +168,61 @@ def main(opt):
         pred_choice = output_digit.data.cpu().max(1)[1]
         
         # calculate the accuracy with the GT
-        correct = pred_choice.eq(target.data.cpu()).cpu().sum()
-        correct_sum=correct_sum+correct.item()        
-        print(' accuracy is: %f' %(correct_sum/float(opt.batch_size*(batch_id+1)*opt.num_points)))
+        for l in range(NUM_CLASSES):
+            total_seen_class_tmp[l] += np.sum((target == l))
+            total_correct_class_tmp[l] += np.sum((pred_choice == l) & (target == l))
+            total_iou_deno_class_tmp[l] += np.sum(((pred_choice == l) | (target == l)))
+            total_seen_class[l] += total_seen_class_tmp[l]
+            total_correct_class[l] += total_correct_class_tmp[l]
+            total_iou_deno_class[l] += total_iou_deno_class_tmp[l]
+
+        iou_map = np.array(total_correct_class_tmp) / (np.array(total_iou_deno_class_tmp, dtype=np.float) + 1e-6)
+        log_string(iou_map)
+        arr = np.array(total_seen_class_tmp)
+        tmp_iou = np.mean(iou_map[arr != 0])
+        log_string('Mean IoU of batch %d in Scene_B: %.4f' % (batch_id+1,tmp_iou))
+        log_string('----------------------------')
+
+
+        points_collector.extend(points)
+        pd_labels_collector.extend(pred_choice)
+        gt_labels_collector.extend(target)
+    
+    if args.visual:
+        log_string('Writing results...')
+        sparse_labels = np.array(pd_labels_collector).astype(int).flatten()
+        np.savetxt(fout_name+'_pd_labels.labels', sparse_labels, fmt='%d', delimiter='\n')
+        log_string("Exported sparse labels to {} / {}".format(save_dir, fout_name+'_pd_labels.labels'))
+        gt_labels = np.array(gt_labels_collector).astype(int).flatten()
+        np.savetxt(fout_gt_name+'_gt_labels.labels', gt_labels, fmt='%d', delimiter='\n')
+        log_string("Exported sparse labels to {} / {}".format(save_dir, fout_name+'_gt_labels.labels'))
+        
+        sparse_points = np.array(points_collector).reshape((-1, 3))
+        pcd = open3d.PointCloud()
+        pcd.points = open3d.Vector3dVector(sparse_points)
+        pcd_path = os.path.join(save_dir,'points.pcd')
+        open3d.write_point_cloud(pcd_path, pcd)
+        log_string("Exported sparse pcd to {}".format(pcd_path))
+        
+
+    IoU = np.array(total_correct_class) / (np.array(total_iou_deno_class, dtype=np.float) + 1e-6)
+    iou_per_class_str = '------- IoU --------\n'
+    for l in range(NUM_CLASSES):
+        iou_per_class_str += 'class %s, IoU: %.3f \n' % (
+            seg_label_to_cat[l] + ' ' * (14 - len(seg_label_to_cat[l])),
+            total_correct_class[l] / float(total_iou_deno_class[l]))
+    log_string(iou_per_class_str)
+    log_string('eval point avg class IoU: %f' % np.mean(IoU))
+    log_string('eval whole scene point avg class acc: %f' % (
+        np.mean(np.array(total_correct_class) / (np.array(total_seen_class, dtype=np.float) + 1e-6))))
+    log_string('eval whole scene point accuracy: %f' % (
+                np.sum(total_correct_class) / float(np.sum(total_seen_class) + 1e-6)))
+
+
+    correct = pred_choice.eq(target.data.cpu()).cpu().sum()
+    correct_sum=correct_sum+correct.item()        
+    log_string(' accuracy is: %f' %(correct_sum/float(opt.batch_size*(batch_id+1)*opt.num_points)))
+    log_string("Done!")
 
 
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','segment_net_evaluation_log.txt'), 'a')

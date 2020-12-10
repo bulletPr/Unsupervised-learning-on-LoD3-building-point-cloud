@@ -270,21 +270,20 @@ def main(opt):
             train_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
             n_batch= train_dataset.dataset.__len__() // opt.batch_size
             loss_buf.append(train_loss.detach().cpu().numpy())
-            print('[%d: %d/%d] | train loss: %f | train accuracy: %f | train iou: %f' %(epoch+1, iter+1, n_batch, np.mean(loss_buf), correct.item()/float(opt.batch_size * opt.num_points),correct.item() / float(2*opt.batch_size*opt.num_points-correct.item())))
+            log_string('[%d: %d/%d] | train loss: %f | train accuracy: %f | train iou: %f' %(epoch+1, iter+1, n_batch, np.mean(loss_buf), correct.item()/float(opt.batch_size * opt.num_points),correct.item() / float(2*opt.batch_size*opt.num_points-correct.item())))
         # save tensorboard
         total_time.append(time.time()-start_time)
-        print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch+1, total_time[0]))
+        log_string("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch+1, total_time[0]))
         loss.append(np.mean(loss_buf))
         writer.add_scalar('Train Loss', loss[-1], epoch+1)
         writer.add_scalar('Epoch Time', np.mean(total_time), epoch+1)
         writer.add_scalar('Train Accuracy', np.mean(train_acc_epoch), epoch+1)
         writer.add_scalar('Train IoU', np.mean(train_iou_epoch), epoch+1)
         
-        print('epoch %d | mean train accuracy: %f | mean train IoU: %f' %(epoch+1, np.mean(train_acc_epoch), np.mean(train_iou_epoch)))
+        log_string('epoch %d | mean train accuracy: %f | mean train IoU: %f' %(epoch+1, np.mean(train_acc_epoch), np.mean(train_iou_epoch)))
         
         if (epoch+1) % opt.snapshot_interval == 0 or epoch == 0:    
             sem_seg_net=sem_seg_net.eval()    
-            correct_sum=0
             for iter, data in enumerate(test_dataset):
                 points, target = data
                 # use the pre-trained AE to encode the point cloud into latent capsules
@@ -309,13 +308,12 @@ def main(opt):
              
                 pred_choice = output.data.cpu().max(1)[1]
                 correct = pred_choice.eq(target.data.cpu()).cpu().sum()                
-                #correct_sum=correct_sum+correct.item()
                 test_acc_epoch.append(correct.item() / float(opt.batch_size*opt.num_points))
                 test_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
             _snapshot(save_dir, sem_seg_net, epoch + 1, opt)
 
-            print('epoch %d | mean test accuracy: %f | mean test IoU: %f' %(epoch+1, np.mean(test_acc_epoch), np.mean(test_iou_epoch)))
-    print("Training finish!... save training results")
+            log_string('epoch %d | mean test accuracy: %f | mean test IoU: %f' %(epoch+1, np.mean(test_acc_epoch), np.mean(test_iou_epoch)))
+    log_string("Training finish!... save training results")
         
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','segment_net_train_log.txt'), 'a')
 def log_string(out_str):

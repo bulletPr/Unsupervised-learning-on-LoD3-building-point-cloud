@@ -244,3 +244,98 @@ def pyplot_draw_point_cloud(points, output_filename):
     ax.set_ylabel('y')
     ax.set_zlabel('z')
     #savefig(output_filename)
+
+def write_ply(filename, field_list, field_names):
+    """
+    Write ".ply" files
+    Parameters
+    ----------
+    filename : string
+        the name of the file to which the data is saved. A '.ply' extension will be appended to the
+        file name if it does no already have one.
+    field_list : list, tuple, numpy array
+        the fields to be saved in the ply file. Either a numpy array, a list of numpy arrays or a
+        tuple of numpy arrays. Each 1D numpy array and each column of 2D numpy arrays are considered
+        as one field.
+    field_names : list
+        the name of each fields as a list of strings. Has to be the same length as the number of
+        fields.
+    Examples
+    --------
+    >>> points = np.random.rand(10, 3)
+    >>> write_ply('example1.ply', points, ['x', 'y', 'z'])
+    >>> values = np.random.randint(2, size=10)
+    >>> write_ply('example2.ply', [points, values], ['x', 'y', 'z', 'values'])
+    >>> colors = np.random.randint(255, size=(10,3), dtype=np.uint8)
+    >>> field_names = ['x', 'y', 'z', 'red', 'green', 'blue', values']
+    >>> write_ply('example3.ply', [points, colors, values], field_names)
+    """
+
+    # Format list input to the right form
+    field_list = list(field_list) if (type(field_list) == list or type(field_list) == tuple) else list((field_list,))
+    for i, field in enumerate(field_list):
+        if field is None:
+            print('WRITE_PLY ERROR: a field is None')
+            return False
+        elif field.ndim > 2:
+            print('WRITE_PLY ERROR: a field have more than 2 dimensions')
+            return False
+        elif field.ndim < 2:
+            field_list[i] = field.reshape(-1, 1)
+
+    # check all fields have the same number of data
+    n_points = [field.shape[0] for field in field_list]
+    if not np.all(np.equal(n_points, n_points[0])):
+        print('wrong field dimensions')
+        return False
+
+    # Check if field_names and field_list have same nb of column
+    n_fields = np.sum([field.shape[1] for field in field_list])
+    if (n_fields != len(field_names)):
+        print('wrong number of field names')
+        return False
+
+    # Add extension if not there
+    # if not filename.endswith('.ply'):
+    #     filename += '.ply'
+
+    # open in text mode to write the header
+    with open(filename, 'w') as plyfile:
+
+        # First magical word
+        header = ['ply']
+
+        # Encoding format
+        header.append('format binary_' + sys.byteorder + '_endian 1.0')
+
+        # Points properties description
+        header.extend(header_properties(field_list, field_names))
+
+        # End of header
+        header.append('end_header')
+
+        # Write all lines
+        for line in header:
+            plyfile.write("%s\n" % line)
+
+
+    # open in binary/append to use tofile
+    with open(filename, 'ab') as plyfile:
+
+        # Create a structured array
+        i = 0
+        type_list = []
+        for fields in field_list:
+            for field in fields.T:
+                type_list += [(field_names[i], field.dtype.str)]
+                i += 1
+        data = np.empty(field_list[0].shape[0], dtype=type_list)
+        i = 0
+        for fields in field_list:
+            for field in fields.T:
+                data[field_names[i]] = field
+                i += 1
+
+        data.tofile(plyfile)
+
+    return True
