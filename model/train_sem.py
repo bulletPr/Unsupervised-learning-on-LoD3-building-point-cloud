@@ -228,7 +228,6 @@ def main(opt):
     total_time = []
 
     for epoch in range(start_epoch, opt.n_epochs):
-        batch_id = 0
         train_acc_epoch, train_iou_epoch, test_acc_epoch, test_iou_epoch = [], [], [], []
         loss_buf = []
         sem_seg_net=sem_seg_net.train()
