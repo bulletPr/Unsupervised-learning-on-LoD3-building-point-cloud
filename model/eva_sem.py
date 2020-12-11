@@ -32,12 +32,10 @@ import statistics
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
-import s3dis_loader
 import arch_dataloader
 
 from model import DGCNN_FoldNet
 from semseg_net import SemSegNet
-from  pc_utils import write_ply
 
 #import h5py
 import json
@@ -63,17 +61,24 @@ def load_pretrain(model, pretrain):
 def main(opt):
     USE_CUDA = True
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    blue = lambda x:'\033[94m' + x + '\033[0m'
-    cat_no = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}
-
+    label2color = {
+        0: [255, 255, 255],  # white
+        1: [0, 0, 255],  # blue
+        2: [128, 0, 0],  # maroon
+        3: [255, 0, 255],  # fuchisia
+        4: [0, 128, 0],  # green
+        5: [255, 0, 0],  # red
+        6: [128, 0, 128],  # purple
+        7: [0, 0, 128],  # navy
+        8: [128, 128, 0],  # olive
+    }
     experiment_id = 'Semantic_segmentation_'+ opt.encoder +'_' +opt.pre_ae_epochs + '_' + str(opt.feat_dims) + '_' + opt.dataset+'_' + str(opt.percentage)+'_percent'
     output_root = 'output/%s' %experiment_id
     save_dir = os.path.join(ROOT_DIR, output_root, 'points/')
     save_dir.mkdir(exist_ok=True)
-    
     if args.visual:
-        fout_name = os.path.join(save_dir, 'Scene_B' + '_pred')
-        fout_gt_name = os.path.join(save_dir, 'Scene_B' + '_gt')
+        fout = open(os.path.join(save_dir, 'Scene_B_pred.ply'))
+        fout_gt = open(os.path.join(save_dir, 'Scene_B_gt.ply'))
     
 # generate part label one-hot correspondence from the catagory:
     if opt.dataset == 's3dis':
@@ -191,19 +196,27 @@ def main(opt):
     if args.visual:
         log_string('Writing results...')
         sparse_labels = np.array(pd_labels_collector).astype(int).flatten()
-        np.savetxt(fout_name+'_pd_labels.labels', sparse_labels, fmt='%d', delimiter='\n')
-        log_string("Exported sparse labels to {} / {}".format(save_dir, fout_name+'_pd_labels.labels'))
+        np.save_txt(save_dir+'/Scene_B_pd_labels.txt', sparse_labels, fmt='%d', delimiter='\n')
+        log_string("Exported sparse labels to {}".format(save_dir+'/Scene_B_pd_labels.txt'))
         gt_labels = np.array(gt_labels_collector).astype(int).flatten()
-        np.savetxt(fout_gt_name+'_gt_labels.labels', gt_labels, fmt='%d', delimiter='\n')
-        log_string("Exported sparse labels to {} / {}".format(save_dir, fout_name+'_gt_labels.labels'))
-        
-        sparse_points = np.array(points_collector).reshape((-1, 3))
-        pcd = open3d.PointCloud()
-        pcd.points = open3d.Vector3dVector(sparse_points)
-        pcd_path = os.path.join(save_dir,'points.pcd')
-        open3d.write_point_cloud(pcd_path, pcd)
-        log_string("Exported sparse pcd to {}".format(pcd_path))
-        
+        np.save_txt(fout_gt_name+'/Scene_B_gt_labels.txt', gt_labels, fmt='%d', delimiter='\n')
+        log_string("Exported sparse labels to {}".format(save_dir+'/Scene_B_gt_labels.txt'+))
+
+        for i in range(gt_labels.shape[0]):
+            color = label2color[sparse_labels[i]]
+            color_gt = label2color[gt_labels[i]]
+            if args.visual:
+                fout.write('v %f %f %f %d %d %d\n' % (
+                    sparse_points[i, 0], sparse_points[i, 1], sparse_points[i, 2], color[0], color[1],
+                    color[2]))
+                fout_gt.write(
+                    'v %f %f %f %d %d %d\n' % (
+                    sparse_points[i, 0], sparse_points[i, 1], sparse_points[i, 2], color_gt[0],
+                    color_gt[1], color_gt[2]))
+        log_string("Exported sparse pcd to {}".format(save_dir))
+    if args.visual:
+        fout.close()
+        fout_gt.close()    
 
     IoU = np.array(total_correct_class) / (np.array(total_iou_deno_class, dtype=np.float) + 1e-6)
     iou_per_class_str = '------- IoU --------\n'
@@ -217,7 +230,6 @@ def main(opt):
         np.mean(np.array(total_correct_class) / (np.array(total_seen_class, dtype=np.float) + 1e-6))))
     log_string('eval whole scene point accuracy: %f' % (
                 np.sum(total_correct_class) / float(np.sum(total_seen_class) + 1e-6)))
-
 
     correct = pred_choice.eq(target.data.cpu()).cpu().sum()
     correct_sum=correct_sum+correct.item()        
@@ -245,6 +257,7 @@ if __name__ == "__main__":
     parser.add_argument('--feat_dims', type=int, default=1024)
     parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
                         help='reconstruction loss')
+    parser.add_argument('--visual', action='store_true', default=False, help='Whether visualize result [default: False]')
 
     opt = parser.parse_args()
     print(opt)

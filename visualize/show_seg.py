@@ -43,11 +43,9 @@ print(point.size(), seg.size())
 
 point_np = point.numpy()
 
-
-
 cmap = plt.cm.get_cmap("hsv", 10)
 cmap = np.array([cmap(i) for i in range(10)])[:,:3]
-gt = cmap[seg.numpy() - 1, :]
+gt = cmap[seg.numpy(), :]
 
 classifier = PointNetDenseCls(k = 4)
 classifier.load_state_dict(torch.load(opt.model))
