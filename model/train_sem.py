@@ -175,12 +175,7 @@ def main(opt):
     if(opt.percentage<100):        
         ResizeDataset(path=os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048"), percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
-    '''
-    train_dataset = latent_loader.Saved_latent_caps_loader(
-            feature_dir=train_path, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=True, train=True,resized=data_resized)
-    test_dataset = latent_loader.Saved_latent_caps_loader(
-            feature_dir=train_path, batch_size=opt.batch_size, npoints=opt.num_points, with_seg=True, shuffle=False, train=False,resized=False)
-    '''
+
     train_filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "train_data_files.txt")
     test_filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "test_data_files.txt")
     # load training data
@@ -275,14 +270,24 @@ def main(opt):
         log_string("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch+1, total_time[0]))
         loss.append(np.mean(loss_buf))
         writer.add_scalar('Train Loss', loss[-1], epoch+1)
-        writer.add_scalar('Epoch Time', np.mean(total_time), epoch+1)
         writer.add_scalar('Train Accuracy', np.mean(train_acc_epoch), epoch+1)
         writer.add_scalar('Train IoU', np.mean(train_iou_epoch), epoch+1)
         
         log_string('epoch %d | mean train accuracy: %f | mean train IoU: %f' %(epoch+1, np.mean(train_acc_epoch), np.mean(train_iou_epoch)))
         
-        if (epoch+1) % opt.snapshot_interval == 0 or epoch == 0:    
-            sem_seg_net=sem_seg_net.eval()    
+        if (epoch+1) % opt.snapshot_interval == 0 or epoch == 0:
+            _snapshot(save_dir, sem_seg_net, epoch + 1, opt)
+
+        with torch.no_grad():
+            total_correct = 0
+            total_seen = 0
+            loss_sum = 0
+            labelweights = np.zeros(NUM_CLASSES)
+            total_seen_class = [0 for _ in range(NUM_CLASSES)]
+            total_correct_class = [0 for _ in range(NUM_CLASSES)]
+            total_iou_deno_class = [0 for _ in range(NUM_CLASSES)]
+            log_string('---- EPOCH %03d EVALUATION ----' % (epoch + 1))    
+            #sem_seg_net=sem_seg_net.eval()    
             for iter, data in enumerate(test_dataset):
                 points, target = data
                 # use the pre-trained AE to encode the point cloud into latent capsules
@@ -299,19 +304,45 @@ def main(opt):
                 latent_caps, target = Variable(latent_caps), Variable(target)    
                 if opt.gpu_mode:
                     latent_caps,target = latent_caps.cuda(), target.cuda()
-                
+                batch_label = target.cpu().data.numpy()
                 #latent_caps=latent_caps.transpose(2, 1)
                 output=sem_seg_net(latent_caps)
                 output = output.view(-1, opt.n_classes)        
                 target= target.view(-1,1)[:,0]
              
                 pred_choice = output.data.cpu().max(1)[1]
-                correct = pred_choice.eq(target.data.cpu()).cpu().sum()                
-                test_acc_epoch.append(correct.item() / float(opt.batch_size*opt.num_points))
-                test_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
-            _snapshot(save_dir, sem_seg_net, epoch + 1, opt)
-
+                correct = pred_choice.eq(target.data.cpu()).cpu().sum()
+                total_correct += correct
+                total_seen += (opt.batch_size * opt.num_points)
+                tmp, _ = np.histogram(batch_label, range(NUM_CLASSES + 1))
+                labelweights += tmp
+                for l in range(NUM_CLASSES):
+                    total_seen_class[l] += np.sum((batch_label == l) )
+                    total_correct_class[l] += np.sum((pred_val == l) & (batch_label == l) )
+                    total_iou_deno_class[l] += np.sum(((pred_val == l) | (batch_label == l)) )
+            labelweights = labelweights.astype(np.float32) / np.sum(labelweights.astype(np.float32))
+            mIoU = np.mean(np.array(total_correct_class) / (np.array(total_iou_deno_class, dtype=np.float) + 1e-6))
+            log_string('eval point avg class IoU: %f' % (mIoU))                
+            test_acc_epoch.append(correct.item() / float(opt.batch_size*opt.num_points))
+            test_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
             log_string('epoch %d | mean test accuracy: %f | mean test IoU: %f' %(epoch+1, np.mean(test_acc_epoch), np.mean(test_iou_epoch)))
+            log_string('eval point avg class acc: %f' % (
+                np.mean(np.array(total_correct_class) / (np.array(total_seen_class, dtype=np.float) + 1e-6))))
+            iou_per_class_str = '------- IoU --------\n'
+            for l in range(NUM_CLASSES):
+                iou_per_class_str += 'class %s weight: %.3f, IoU: %.3f \n' % (
+                    seg_label_to_cat[l] + ' ' * (14 - len(seg_label_to_cat[l])), labelweights[l - 1],
+                    total_correct_class[l] / float(total_iou_deno_class[l]))
+            writer.add_scalar('EVALUATION IoU', np.mean(test_iou_epoch), epoch+1)
+            writer.add_scalar('EVALUATION mIoU', mIoU, epoch+1)
+            writer.add_scalar('EVALUATION Accuracy', np.mean(test_acc_epoch), epoch+1)
+            writer.add_scalar('EVALUATION Avg class accuracy', np.mean(test_iou_epoch), epoch+1)
+
+            if mIoU >= best_iou:
+                best_iou = mIoU
+                _snapshot(save_dir, sem_seg_net, 'best', opt)
+                log_string('Saving model....')
+            log_string('Best mIoU: %f at epoch %d' % (best_iou, epoch+1))
     log_string("Training finish!... save training results")
         
 LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','segment_net_train_log.txt'), 'a')
