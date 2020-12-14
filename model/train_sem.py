@@ -129,6 +129,12 @@ def _snapshot(save_dir, model, epoch, opt):
 
 def main(opt):
     experiment_id = 'Semantic_segmentation_'+ opt.encoder +'_' +opt.pre_ae_epochs + '_' + str(opt.feat_dims) + '_' + opt.dataset+'_' + str(opt.percentage)+'_percent'
+    LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG', experiment_id+'_train_log.txt'), 'w')
+    def log_string(out_str):
+        LOG_FOUT.write(out_str + '\n')
+        LOG_FOUT.flush()
+        print(out_str)
+    
     snapshot_root = 'snapshot/%s' %experiment_id
     tensorboard_root = 'tensorboard/%s' %experiment_id
     save_dir = os.path.join(ROOT_DIR, snapshot_root, 'models/')
@@ -150,7 +156,6 @@ def main(opt):
         else:
             shutil.rmtree(tboard_dir)
             os.makedirs(tboard_dir)
-    sys.stdout = Logger(os.path.join(ROOT_DIR, 'LOG', 'sem_seg_network_log.txt'))
     writer = SummaryWriter(log_dir = tboard_dir)
 
     #generate part label one-hot correspondence from the catagory:
@@ -175,15 +180,16 @@ def main(opt):
     if(opt.percentage<100):        
         ResizeDataset(path=os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048"), percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
-
+    NUM_CLASSES = 10
     train_filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "train_data_files.txt")
     test_filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "test_data_files.txt")
+    
     # load training data
     train_dataset = arch_dataloader.get_dataloader(filelist=train_filelist, batch_size=opt.batch_size, 
                                                 num_workers=4, group_shuffle=False,shuffle=True)
     log_string("classifer set size: " + str(train_dataset.dataset.__len__()))
     test_dataset = arch_dataloader.get_dataloader(filelist=test_filelist, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False,shuffle=True)
+                                                num_workers=4, group_shuffle=False,shuffle=False)
     log_string("classifer set size: " + str(test_dataset.dataset.__len__()))
 
     # load the model for point auto encoder    
@@ -219,15 +225,13 @@ def main(opt):
     
     print('training start!!!')
     start_time = time.time()
-    loss = []
     total_time = []
-
+    best_iou = 0
     for epoch in range(start_epoch, opt.n_epochs):
         train_acc_epoch, train_iou_epoch, test_acc_epoch, test_iou_epoch = [], [], [], []
         loss_buf = []
         sem_seg_net=sem_seg_net.train()
         for iter, data in enumerate(train_dataset):
-            
             points, target = data
             # use the pre-trained AE to encode the point cloud into latent capsules
             points_ = Variable(points)
@@ -268,11 +272,9 @@ def main(opt):
         # save tensorboard
         total_time.append(time.time()-start_time)
         log_string("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch+1, total_time[0]))
-        loss.append(np.mean(loss_buf))
-        writer.add_scalar('Train Loss', loss[-1], epoch+1)
-        writer.add_scalar('Train Accuracy', np.mean(train_acc_epoch), epoch+1)
-        writer.add_scalar('Train IoU', np.mean(train_iou_epoch), epoch+1)
-        
+        writer.add_scalar('Train Loss', np.mean(loss_buf), epoch)
+        writer.add_scalar('Train Accuracy', np.mean(train_acc_epoch), epoch)
+        writer.add_scalar('Train IoU', np.mean(train_iou_epoch), epoch)
         log_string('epoch %d | mean train accuracy: %f | mean train IoU: %f' %(epoch+1, np.mean(train_acc_epoch), np.mean(train_iou_epoch)))
         
         if (epoch+1) % opt.snapshot_interval == 0 or epoch == 0:
@@ -282,6 +284,7 @@ def main(opt):
             total_correct = 0
             total_seen = 0
             loss_sum = 0
+            n_batch= train_dataset.dataset.__len__()
             labelweights = np.zeros(NUM_CLASSES)
             total_seen_class = [0 for _ in range(NUM_CLASSES)]
             total_correct_class = [0 for _ in range(NUM_CLASSES)]
@@ -305,38 +308,46 @@ def main(opt):
                 if opt.gpu_mode:
                     latent_caps,target = latent_caps.cuda(), target.cuda()
                 batch_label = target.cpu().data.numpy()
-                #latent_caps=latent_caps.transpose(2, 1)
+                #output
+                sem_seg_net = sem_seg_net.eval() 
                 output=sem_seg_net(latent_caps)
-                output = output.view(-1, opt.n_classes)        
+                #output to prediction
+                pred_val = output.contiguous().cpu().data.numpy()
+                pred_val = np.argmax(pred_val, 2)
+                #convert output to calculate loss
+                output = output.view(-1, opt.n_classes)     
                 target= target.view(-1,1)[:,0]
-             
-                pred_choice = output.data.cpu().max(1)[1]
-                correct = pred_choice.eq(target.data.cpu()).cpu().sum()
+                loss = F.nll_loss(output_digit, target)
+                loss_sum +=loss
+                
+                #pred_choice = output.data.cpu().max(1)[1]
+                correct = np.sum((pred_val == batch_label))
                 total_correct += correct
                 total_seen += (opt.batch_size * opt.num_points)
                 tmp, _ = np.histogram(batch_label, range(NUM_CLASSES + 1))
                 labelweights += tmp
+                #print("batch_label shape: " + str(batch_label.shape))
+                #print("pred_val shape: " + str(pred_val.shape))
                 for l in range(NUM_CLASSES):
                     total_seen_class[l] += np.sum((batch_label == l) )
                     total_correct_class[l] += np.sum((pred_val == l) & (batch_label == l) )
                     total_iou_deno_class[l] += np.sum(((pred_val == l) | (batch_label == l)) )
             labelweights = labelweights.astype(np.float32) / np.sum(labelweights.astype(np.float32))
             mIoU = np.mean(np.array(total_correct_class) / (np.array(total_iou_deno_class, dtype=np.float) + 1e-6))
-            log_string('eval point avg class IoU: %f' % (mIoU))                
-            test_acc_epoch.append(correct.item() / float(opt.batch_size*opt.num_points))
-            test_iou_epoch.append(correct.item() / float(2*opt.batch_size*opt.num_points-correct.item()))
-            log_string('epoch %d | mean test accuracy: %f | mean test IoU: %f' %(epoch+1, np.mean(test_acc_epoch), np.mean(test_iou_epoch)))
-            log_string('eval point avg class acc: %f' % (
+            log_string('epoch %d | eval mean loss: %f' % (epoch+1,loss_sum / float(n_batch)))
+            log_string('epoch %d | eval point avg class IoU: %f' % (epoch+1, mIoU))                
+            log_string('epoch %d | eval point accuracy: %f' % (epoch+1, total_correct / float(total_seen)))
+            log_string('epoch %d | eval point avg class acc: %f' % (epoch+1,
                 np.mean(np.array(total_correct_class) / (np.array(total_seen_class, dtype=np.float) + 1e-6))))
             iou_per_class_str = '------- IoU --------\n'
             for l in range(NUM_CLASSES):
-                iou_per_class_str += 'class %s weight: %.3f, IoU: %.3f \n' % (
+                iou_per_class_str += 'epoch %d | class %s weight: %.3f, IoU: %.3f \n' % (epoch+1, 
                     seg_label_to_cat[l] + ' ' * (14 - len(seg_label_to_cat[l])), labelweights[l - 1],
                     total_correct_class[l] / float(total_iou_deno_class[l]))
-            writer.add_scalar('EVALUATION IoU', np.mean(test_iou_epoch), epoch+1)
-            writer.add_scalar('EVALUATION mIoU', mIoU, epoch+1)
-            writer.add_scalar('EVALUATION Accuracy', np.mean(test_acc_epoch), epoch+1)
-            writer.add_scalar('EVALUATION Avg class accuracy', np.mean(test_iou_epoch), epoch+1)
+            log_string(iou_per_class_str)
+            writer.add_scalar('Eval mIoU', mIoU, epoch)
+            writer.add_scalar('Eval Point accuracy', total_correct / float(total_seen), epoch)
+            writer.add_scalar('Eval Avg class accuracy', np.mean(np.array(total_correct_class) / (np.array(total_seen_class, dtype=np.float) + 1e-6)), epoch)
 
             if mIoU >= best_iou:
                 best_iou = mIoU
@@ -344,12 +355,6 @@ def main(opt):
                 log_string('Saving model....')
             log_string('Best mIoU: %f at epoch %d' % (best_iou, epoch+1))
     log_string("Training finish!... save training results")
-        
-LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG','segment_net_train_log.txt'), 'a')
-def log_string(out_str):
-    LOG_FOUT.write(out_str + '\n')
-    LOG_FOUT.flush()
-    print(out_str)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -369,7 +374,7 @@ if __name__ == "__main__":
     parser.add_argument('--feat_dims', type=int, default=1024)
     parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
                         help='reconstruction loss')
-    parser.add_argument('--snapshot_interval', type=int, default=5, metavar='N',
+    parser.add_argument('--snapshot_interval', type=int, default=1, metavar='N',
                         help='Save snapshot interval ')
 
     opt = parser.parse_args()
