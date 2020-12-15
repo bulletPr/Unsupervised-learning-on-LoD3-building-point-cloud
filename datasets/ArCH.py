@@ -41,11 +41,11 @@ from pc_utils import load_sampled_h5_seg, grouped_shuffle
 
 class ArchDataset(Dataset):
     def __init__(self, filelist, num_points=2048, random_translate=False, random_rotate=False,
-            random_jitter=False, group_shuffle=True):
+            random_jitter=False, group_shuffle=False):
         self.random_translate = random_translate
         self.random_jitter = random_jitter
         self.random_rotate = random_rotate
-        self.shuffle = group_shuffle
+        self.group_shuffle = group_shuffle
         self.num_points = num_points
         
         #define all train/test file
@@ -56,19 +56,14 @@ class ArchDataset(Dataset):
         
         self.data, self.seg_labels = load_sampled_h5_seg(self.path_h5py_all)
         
-        if self.shuffle:
-            self.data,  self.seg_labels = grouped_shuffle([self.data, self.seg_labels])
+        if self.group_shuffle:
+            self.data, self.seg_labels = grouped_shuffle([self.data, self.seg_labels])
         log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.seg_labels.shape) + "]")
         
 
     def __getitem__(self, index):
         point_set = self.data[index]
         label = self.seg_labels[index]
-
-        # data sampling
-        choise = np.random.choice(point_set.shape[0], self.num_points, replace=(point_set.shape[0]<self.num_points))
-        point_set=point_set[choise][...]
-        label = label[choise]
         
         # data augument
         if self.random_translate:

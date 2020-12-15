@@ -150,15 +150,29 @@ def load_h5_data_label_seg(h5_filename):
 def load_h5(h5_filename):
     f = h5py.File(h5_filename, 'r')
     data = f['data'][...].astype(np.float32)
-    label = f['label_seg'][...].astype(np.int64)
+    label = f['label'][...].astype(np.int64)
     return (data, label)
 
 def load_h5_seg(h5_filename):
     f = h5py.File(h5_filename, 'r')
     data = f['data'][...].astype(np.float32)
     label = f['label_seg'][...].astype(np.int64)
-    return (np.concatenate(data, axis=0),
-            np.concatenate(label, axis=0))
+    return (data, label)
+
+def load_sampled_h5_seg(filelist):
+    points = []
+    labels_seg = []
+
+    folder = os.path.dirname(filelist)
+    for line in open(filelist):
+        print("Load file: " + str(line))
+        data = h5py.File(os.path.join(folder, line.strip()), 'r')
+        points.append(data['data'][:,:,0:3].astype(np.float32))
+        labels_seg.append(data['label_seg'][...].astype(np.int64))
+        data.close()
+
+    return (np.concatenate(points, axis=0),
+            np.concatenate(labels_seg, axis=0))
 
 def load_cls(filelist):
     points = []
@@ -251,6 +265,7 @@ def _label_to_colors(labels):
         6: [128, 0, 128],  # purple
         7: [0, 0, 128],  # navy
         8: [128, 128, 0],  # olive
+        9: [128,128,128],
     }
     return np.array([map_label_to_color[label] for label in labels]).astype(np.int32)
 
@@ -267,6 +282,7 @@ def _label_to_colors_one_hot(labels):
             [128, 0, 128],
             [0, 0, 128],
             [128, 128, 0],
+            [128,128,128],
         ]
     )
     num_labels = len(labels)

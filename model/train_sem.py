@@ -202,7 +202,10 @@ def main(opt):
     ae_net=ae_net.eval()
  
     #initial segmentation model
-    sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, with_rgb=False)
+    if opt.feat_dims == 512:      
+        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, feat_dims=True, with_rgb=False)    
+    elif opt.feat_dims == 1024:
+        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder)
     #load pretrained model
     if opt.model != '':
         sem_seg_net = load_pretrain(sem_seg_net, opt.model)            

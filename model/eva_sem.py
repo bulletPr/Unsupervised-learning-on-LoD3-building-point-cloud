@@ -112,8 +112,11 @@ def main(opt):
         ae_net = ae_net.cuda()
     ae_net=ae_net.eval() 
     
-# load the model for capsule wised part segmentation      
-    sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, with_rgb=False)    
+# load the model for capsule wised part segmentation
+    if opt.feat_dims == 512:      
+        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, feat_dims=True)    
+    elif opt.feat_dims == 1024:
+        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder)
     if opt.seg_model != '':
         sem_seg_net=load_pretrain(sem_seg_net, os.path.join(ROOT_DIR,opt.seg_model))
     if USE_CUDA:
