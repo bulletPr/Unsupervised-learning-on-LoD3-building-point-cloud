@@ -132,7 +132,7 @@ def main(opt):
         BATCH_SIZE = opt.batch_size
         dataset = S3DISDataset(split='test', data_root=root, num_point=NUM_POINT, rgb=False, test_area=5, block_size=1.0, sample_rate=1.0, transform=None)
         log_string("start loading test data ...")
-        dataLoader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=True, num_workers=4, pin_memory=True, drop_last=True, worker_init_fn = lambda x: np.random.seed(x+int(time.time())))
+        dataLoader = torch.utils.data.DataLoader(dataset, batch_size=opt.batch_size, shuffle=False, num_workers=4, pin_memory=True, drop_last=True, worker_init_fn = lambda x: np.random.seed(x+int(time.time())))
         log_string("classifer set size: " + str(dataloader.dataset.__len__()))
 
     elif opt.dataset == 'arch':
@@ -142,7 +142,7 @@ def main(opt):
         filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "test_data_files.txt")
         # load test data
         dataloader = arch_dataloader.get_dataloader(filelist=filelist, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False,shuffle=False)
+                                                num_workers=4, group_shuffle=False,shuffle=False, random_rotate=False, random_jitter=False,random_translate=True, drop_last=False)
         log_string("classifer set size: " + str(dataloader.dataset.__len__()))
 
     correct_sum=0

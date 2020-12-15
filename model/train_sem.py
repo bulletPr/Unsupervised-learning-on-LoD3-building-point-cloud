@@ -174,7 +174,7 @@ def main(opt):
             seg_label_to_cat[i] = cat
 
     # load the dataset
-    print('-Preparing dataset...')
+    log_string('-Preparing dataset...')
     data_resized=False
     #train_path = os.path.join(ROOT_DIR, 'cache', 'latent_' + opt.pre_ae_epochs + '_' + opt.dataset + '_' +str(opt.feature_dims), 'features')
     if(opt.percentage<100):        
@@ -185,11 +185,11 @@ def main(opt):
     test_filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "test_data_files.txt")
     
     # load training data
-    train_dataset = arch_dataloader.get_dataloader(filelist=train_filelist, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False,shuffle=True)
+    train_dataset = arch_dataloader.get_dataloader(filelist=train_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
+                                                num_workers=4, group_shuffle=False,shuffle=True, random_translate=True, drop_last=True)
     log_string("classifer set size: " + str(train_dataset.dataset.__len__()))
-    test_dataset = arch_dataloader.get_dataloader(filelist=test_filelist, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False,shuffle=False)
+    test_dataset = arch_dataloader.get_dataloader(filelist=test_filelist, um_points=opt.num_points, batch_size=opt.batch_size, 
+                                                num_workers=4, group_shuffle=False,shuffle=False, drop_last=False)
     log_string("classifer set size: " + str(test_dataset.dataset.__len__()))
 
     # load the model for point auto encoder    
@@ -203,9 +203,9 @@ def main(opt):
  
     #initial segmentation model
     if opt.feat_dims == 512:      
-        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, feat_dims=True, with_rgb=False)    
+        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, dropout=opt.dropout, feat_dims=True, with_rgb=False)    
     elif opt.feat_dims == 1024:
-        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder)
+        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, dropout=opt.dropout)
     #load pretrained model
     if opt.model != '':
         sem_seg_net = load_pretrain(sem_seg_net, opt.model)            
@@ -226,7 +226,7 @@ def main(opt):
     else:
         start_epoch = 0
     
-    print('training start!!!')
+    log_string('training start!!!')
     start_time = time.time()
     total_time = []
     best_iou = 0
@@ -236,10 +236,9 @@ def main(opt):
         sem_seg_net=sem_seg_net.train()
         for iter, data in enumerate(train_dataset):
             points, target = data
-            # use the pre-trained AE to encode the point cloud into latent capsules
+            # use the pre-trained AE to encode the point cloud into latent features
             points_ = Variable(points)
             target = target.long()
-            #print(target)
             if opt.gpu_mode:
                 points_ = points_.cuda()
             _, latent_caps, mid_features = ae_net(points_)
@@ -255,7 +254,7 @@ def main(opt):
     
 # forward
             optimizer.zero_grad()
-            #latent_caps=latent_caps.transpose(2, 1)# consider the capsule vector size as the channel in the network
+            #latent_caps=latent_caps.transpose(2, 1)# consider the feature vector size as the channel in the network
             output_digit =sem_seg_net(latent_caps)
             output_digit = output_digit.view(-1, opt.n_classes)        
             #batch_label = target.view(-1, 1)[:, 0].cpu().data.numpy()
@@ -274,10 +273,11 @@ def main(opt):
             log_string('[%d: %d/%d] | train loss: %f | train accuracy: %f | train iou: %f' %(epoch+1, iter+1, n_batch, np.mean(loss_buf), correct.item()/float(opt.batch_size * opt.num_points),correct.item() / float(2*opt.batch_size*opt.num_points-correct.item())))
         # save tensorboard
         total_time.append(time.time()-start_time)
-        log_string("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch+1, total_time[0]))
+        print("Avg one epoch time: %.2f, total %d epochs time: %.2f" % (np.mean(total_time), epoch+1, total_time[0]))
         writer.add_scalar('Train Loss', np.mean(loss_buf), epoch)
         writer.add_scalar('Train Accuracy', np.mean(train_acc_epoch), epoch)
         writer.add_scalar('Train IoU', np.mean(train_iou_epoch), epoch)
+        log_string('---- EPOCH %03d TRAIN ----' % (epoch + 1))
         log_string('epoch %d | mean train accuracy: %f | mean train IoU: %f' %(epoch+1, np.mean(train_acc_epoch), np.mean(train_iou_epoch)))
         
         if (epoch+1) % opt.snapshot_interval == 0 or epoch == 0:
@@ -292,7 +292,7 @@ def main(opt):
             total_seen_class = [0 for _ in range(NUM_CLASSES)]
             total_correct_class = [0 for _ in range(NUM_CLASSES)]
             total_iou_deno_class = [0 for _ in range(NUM_CLASSES)]
-            log_string('---- EPOCH %03d EVALUATION ----' % (epoch + 1))    
+            log_string('---- EPOCH %03d EVALUATION ----' % (epoch + 1))
             #sem_seg_net=sem_seg_net.eval()    
             for iter, data in enumerate(test_dataset):
                 points, target = data
@@ -348,9 +348,9 @@ def main(opt):
                     seg_label_to_cat[l] + ' ' * (14 - len(seg_label_to_cat[l])), labelweights[l - 1],
                     total_correct_class[l] / float(total_iou_deno_class[l]))
             log_string(iou_per_class_str)
+            writer.add_scalar('Eval Loss', loss_sum / float(n_batch), epoch)
             writer.add_scalar('Eval mIoU', mIoU, epoch)
             writer.add_scalar('Eval Point accuracy', total_correct / float(total_seen), epoch)
-            writer.add_scalar('Eval Avg class accuracy', np.mean(np.array(total_correct_class) / (np.array(total_seen_class, dtype=np.float) + 1e-6)), epoch)
 
             if mIoU >= best_iou:
                 best_iou = mIoU
@@ -367,6 +367,8 @@ if __name__ == "__main__":
     parser.add_argument('--gpu_mode', action='store_true', help='Enables CUDA training')
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
     parser.add_argument('--model', type=str, default='', help='model path')
+    parser.add_argument('--dropout', action='store_true',
+                        help='Enables dropout when training')
     parser.add_argument('--ae_model', type=str, default='snapshot/Reconstruct_shapenet_foldingnet_1024/models/shapenetcorev2_best.pkl', 
                         help='model path for the pre-trained ae network')
     parser.add_argument('--dataset', type=str, default='arch', help='dataset: s3dis, arch')

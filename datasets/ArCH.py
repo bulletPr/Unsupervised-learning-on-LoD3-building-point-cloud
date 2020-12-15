@@ -53,9 +53,7 @@ class ArchDataset(Dataset):
         
         log_string("Read datasets by load .h5 files, filelist: " + str(filelist))
         self.path_h5py_all = filelist
-        
         self.data, self.seg_labels = load_sampled_h5_seg(self.path_h5py_all)
-        
         if self.group_shuffle:
             self.data, self.seg_labels = grouped_shuffle([self.data, self.seg_labels])
         log_string("size of all point_set: [" + str(self.data.shape) + "," + str(self.seg_labels.shape) + "]")

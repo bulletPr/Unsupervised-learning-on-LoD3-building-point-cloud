@@ -70,6 +70,11 @@ def main():
             labels = xyzrgbl[:,-1]
 
             xyz = xyzrgbl[:,0:3]
+            xyz_min = np.amin(xyz, axis=0, keepdims = True)
+            xyz_max = np.amax(xyz, axis=0, keepdims = True)
+            xyz_center = (xyz_min + xyz_max) / 2
+            xyz_center[0][-1] = xyz_min[0][-1]
+            xyz = xyz - xyz_center   # align to scene bottom center
             rgb = xyzrgbl[:,3:6] / 255 - 0.5
 
             offsets = [('zero', 0.0), ('half', args.block_size / 2)]

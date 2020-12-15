@@ -32,21 +32,28 @@ import torch.nn.functional as F
 # ----------------------------------------
 
 class SemSegNet(nn.Module):
-    def __init__(self, num_class, with_rgb=False):
+    def __init__(self, num_class, encoder, dropout=False, feat_dims=False, with_rgb=False):
         super(SemSegNet, self).__init__()
         if with_rgb:
             channel = 6
         else:
             channel = 3
         self.num_class = num_class
-
-        self.conv1 = torch.nn.Conv1d(1088, 512, 1)
+        self.dropout = dropout
+        if encoder == 'foldingnet':
+            if feat_dims: #512
+                self.conv1 = torch.nn.Conv1d(576, 512, 1)
+            else:
+                self.conv1 = torch.nn.Conv1d(1088, 512, 1)
+        else:
+            self.conv1 = torch.nn.Conv1d(1216, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
         self.conv3 = torch.nn.Conv1d(256, 128, 1)
         self.conv4 = torch.nn.Conv1d(128, self.num_class, 1)
         self.bn1 = nn.BatchNorm1d(512)
         self.bn2 = nn.BatchNorm1d(256)
         self.bn3 = nn.BatchNorm1d(128)
+        self.dp1 = nn.Dropout(p=0.5)
 
     def forward(self, x):
         batchsize = x.size()[0]
@@ -55,6 +62,8 @@ class SemSegNet(nn.Module):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
+        if self.dropout:
+            x = self.dp1(x)
         x = self.conv4(x)
         x = x.transpose(2,1).contiguous()
         x = F.log_softmax(x.view(-1,self.num_class), dim=-1)

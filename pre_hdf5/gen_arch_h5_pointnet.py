@@ -119,7 +119,7 @@ else:
 for i in range(len(split_filelists[args.split])):
     filepath = os.path.join(ROOT_DIR, args.data_dir, split_filelists[args.split][i])
     log_string("input file: " + filepath)
-    data, labels = common.scene2blocks_wrapper(filepath,NUM_POINT, block_size=args.block_size, stride=args.stride, random_sample=False, sample_num=None)
+    data, labels = common.scene2blocks_wrapper(filepath, NUM_POINT, block_size=args.block_size, stride=args.stride, random_sample=False, sample_num=None)
     log_string("output file size: " + str(data.shape) + ', ' + str(labels.shape))
 
     sample_cnt += data.shape[0]

@@ -158,6 +158,8 @@ def scene2blocks_wrapper(data_label_filename, num_point, block_size=1.0, stride=
                         random_sample=False, sample_num=None, sample_aug=1):
     data_label = np.loadtxt(data_label_filename)
     data_label = data_label[:,0:7]
+    xyz_min = np.amin(data_label, axis=0)[0:3]
+    data_label[:, 0:3] -= xyz_min
     log_string("input scene: " + data_label_filename + " and shape: " + str(data_label.shape))
 
     return scene2blocks_plus(data_label, num_point, block_size, stride,
@@ -193,7 +195,8 @@ def scenetoblocks_wrapper_normalized(data_label_filename, num_point, block_size=
                                  sampling=False, sample_num=None, sample_aug=1):
     data_label = np.loadtxt(data_label_filename)
     data_label = data_label[:,0:7]
-
+    xyz_min = np.amin(data_label, axis=0)[0:3]
+    data_label[:, 0:3] -= xyz_min
     return scenetoblocks_plus_normalized(data_label, num_point, block_size, stride,
                                        sampling, sample_num, sample_aug)
 
