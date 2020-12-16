@@ -1,3 +1,0 @@
-input scene: /home/yw/Documents/experiment/Unsupervised-learning-on-LoD3-building-point-cloud/data/arch/val/A_SMG_portico.txt and shape: (17798012, 7)
-block number: 64, 53
-block data list size: 878

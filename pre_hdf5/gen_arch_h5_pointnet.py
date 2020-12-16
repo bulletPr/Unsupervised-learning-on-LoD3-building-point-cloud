@@ -50,6 +50,7 @@ else:
     output_dir = os.path.join(ROOT_DIR, 'data', '{}_{}m_{}s_pointnet_hdf5_data'.format(args.data_dir, args.block_size, args.stride), args.split)
 
 if not os.path.exists(output_dir):
+    os.mkdir(os.path.join(ROOT_DIR, 'data', '{}_{}m_{}s_pointnet_hdf5_data'.format(args.data_dir, args.block_size, args.stride)))
     os.mkdir(output_dir)
 output_filename_prefix = os.path.join(output_dir, 'h5_data_all')
 
