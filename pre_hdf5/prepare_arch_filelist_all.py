@@ -38,7 +38,7 @@ def main():
 
     root = args.folder if args.folder else '../data/arch/'
 
-    splits = ['train', 'test']
+    splits = ['train', 'test', 'val']
     split_filelists = dict()
     for split in splits:
         split_filelists[split] = ['./%s/%s\n' % (split, filename) for filename in os.listdir(os.path.join(root, split))
@@ -51,14 +51,14 @@ def main():
     with open(train_list, 'w') as filelist:
         for filenames in train_h5:
             filelist.write(filenames)
-    '''
+
     val_h5 = split_filelists['val']
     val_list = os.path.join(root, 'val_data_files.txt')
     print('{}-Saving {}...'.format(datetime.now(), val_list))
     with open(val_list, 'w') as filelist:
         for filename_h5 in val_h5:
             filelist.write(filename_h5)
-    '''
+
     test_h5 = split_filelists['test']
     test_list = os.path.join(root, 'test_data_files.txt')
     print('{}-Saving {}...'.format(datetime.now(), test_list))

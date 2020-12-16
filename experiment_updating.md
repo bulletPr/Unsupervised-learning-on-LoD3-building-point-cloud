@@ -78,28 +78,26 @@ Dillinger is currently extended with the following plugins. Instructions on how 
 | ArCH dataset | [Download link][ds3] |
 
 
-### Development
+### Data-preprocessing
 
-Want to contribute? Great!
+Two spliting method: based on pointnet(1*1m, 4096 per block) or pointcnn(1.5*1.5m, 8192 per block)
 
-Dillinger uses Gulp + Webpack for fast developing.
-Make a change in your file and instantaneously see your updates!
-
-Open your favorite Terminal and run these commands.
-
-First Tab:
+If use pointnet spliting method, to generate train .h5 files:
 ```sh
-$ node app
+$ python pre_hdf5/gen_arch_h5_pointnet.py
+```
+If use pointnet spliting method, to generate test .h5 files:
+```sh
+$ python pre_hdf5/gen_arch_h5_pointnet.py --stride 1.0 --split test
 ```
 
-Second Tab:
+If use pointcnn spliting method, to generate .h5 files::
 ```sh
-$ gulp watch
+$ python pre_hdf5/gen_arch_h5_pointcnn.py
 ```
-
-(optional) Third:
+Then generate filelists:
 ```sh
-$ karma test
+$ python pre_hdf5/prepare_arch_filelist_all.py --folder '../data/'
 ```
 #### Building for source
 For production release:

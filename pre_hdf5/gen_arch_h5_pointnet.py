@@ -31,9 +31,9 @@ import common
 parse = argparse.ArgumentParser()
 parse.add_argument('--split_file', default='')
 parse.add_argument('--block_size', default=1.0)
-parse.add_argument('--stride', default=0.5)
+parse.add_argument('--stride', type=float, default=0.5)
 parse.add_argument('--split', default='train')
-parse.add_argument('--data_dir', default='data/arch')
+parse.add_argument('--data_dir', default='arch')
 args = parse.parse_args()
 
 # Constants
@@ -44,10 +44,10 @@ label_dim = [NUM_POINT]
 data_dtype = np.float32
 label_dtype = np.int8
 
-if args.split_file == '':
-    output_dir = os.path.join(ROOT_DIR, args.data_dir, 'arch_{}m_{}s_pointnet_hdf5_data_{}'.format(args.block_size, args.stride, args.split))
+if args.data_dir == 'arch':
+    output_dir = os.path.join(ROOT_DIR, 'data', 'arch_{}m_{}s_pointnet_hdf5_data'.format(args.block_size, args.stride), args.split)
 else:
-    output_dir = os.path.join(args.data_dir, 'arch_{}{}m_{}s_pointnet_hdf5_data_{}'.format(args.split_file[0:2],args.block_size, args.stride, args.split))
+    output_dir = os.path.join(ROOT_DIR, 'data', '{}_{}m_{}s_pointnet_hdf5_data'.format(args.data_dir, args.block_size, args.stride), args.split)
 
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -110,14 +110,14 @@ sample_cnt = 0
 
 split_filelists = dict()
 if args.split_file == '':
-    split_filelists[args.split] = ['%s/%s\n' % (args.split, filename) for filename in os.listdir(os.path.join(args.data_dir, args.split))]
+    split_filelists[args.split] = ['%s/%s' % (args.split, filename) for filename in os.listdir(os.path.join(ROOT_DIR, 'data', args.data_dir, args.split))]
 else:
     split_filelists[args.split] = [os.path.join(args.split,args.split_file)]
     print(split_filelists[args.split][0])
     
     
 for i in range(len(split_filelists[args.split])):
-    filepath = os.path.join(ROOT_DIR, args.data_dir, split_filelists[args.split][i])
+    filepath = os.path.join(ROOT_DIR, 'data', args.data_dir, split_filelists[args.split][i])
     log_string("input file: " + filepath)
     data, labels = common.scene2blocks_wrapper(filepath, NUM_POINT, block_size=args.block_size, stride=args.stride, random_sample=False, sample_num=None)
     log_string("output file size: " + str(data.shape) + ', ' + str(labels.shape))

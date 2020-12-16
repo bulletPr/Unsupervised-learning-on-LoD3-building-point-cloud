@@ -251,7 +251,7 @@ def balance_classes(labels):
 import matplotlib.pyplot as plt
 
 import numpy as np
-import open3d
+#import open3d
 
 
 def _label_to_colors(labels):

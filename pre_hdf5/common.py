@@ -22,13 +22,12 @@ import os
 import sys
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 sys.path.append(BASE_DIR)
-sys.path.append('../')
 ROOT_DIR = os.path.dirname(BASE_DIR)
 import numpy as np
 import argparse
 import torch
 
-DATA_PATH = os.path.join(ROOT_DIR, 'data', 'arch', 'Train')
+DATA_PATH = os.path.join(ROOT_DIR, 'data', 'arch')
 LOG_PATH = os.path.join(ROOT_DIR, 'LOG')
 
 # -----------------------------------------------------------------------------
