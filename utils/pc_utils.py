@@ -125,7 +125,7 @@ def save_h5(h5_filename, data, label, data_dtype='uint8', label_dtype='uint8'):
             compression='gzip', compression_opts=4,
             dtype=data_dtype)
     h5_fout.create_dataset(
-            'label', data=label,
+            'label_seg', data=label,
             compression='gzip', compression_opts=1,
             dtype=label_dtype)
     h5_fout.close()

@@ -181,15 +181,19 @@ def main(opt):
         ResizeDataset(path=os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048"), percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
     NUM_CLASSES = 10
-    train_filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "train_data_files.txt")
-    test_filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "test_data_files.txt")
+    if opt.no_others:
+        arch_data_dir = 'arch_no_others_1.0m_pointnet_hdf5_data'
+    else:
+        arch_data_dir = "arch_pointcnn_hdf5_2048"
+    train_filelist = os.path.join(DATA_DIR, arch_data_dir, "train_data_files.txt")
+    val_filelist = os.path.join(DATA_DIR, arch_data_dir, "val_data_files.txt")
     
     # load training data
     train_dataset = arch_dataloader.get_dataloader(filelist=train_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False,shuffle=True, random_translate=True, drop_last=True)
+                                                num_workers=4, group_shuffle=False, shuffle=True, random_translate=True, drop_last=True)
     log_string("classifer set size: " + str(train_dataset.dataset.__len__()))
-    test_dataset = arch_dataloader.get_dataloader(filelist=test_filelist, um_points=opt.num_points, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False,shuffle=False, drop_last=False)
+    val_dataset = arch_dataloader.get_dataloader(filelist=val_filelist, um_points=opt.num_points, batch_size=opt.batch_size, 
+                                                num_workers=4, group_shuffle=False, shuffle=False, drop_last=False)
     log_string("classifer set size: " + str(test_dataset.dataset.__len__()))
 
     # load the model for point auto encoder    
@@ -294,7 +298,7 @@ def main(opt):
             total_iou_deno_class = [0 for _ in range(NUM_CLASSES)]
             log_string('---- EPOCH %03d EVALUATION ----' % (epoch + 1))
             #sem_seg_net=sem_seg_net.eval()    
-            for iter, data in enumerate(test_dataset):
+            for iter, data in enumerate(val_dataset):
                 points, target = data
                 # use the pre-trained AE to encode the point cloud into latent capsules
                 points_ = Variable(points)
@@ -381,6 +385,7 @@ if __name__ == "__main__":
                         help='reconstruction loss')
     parser.add_argument('--snapshot_interval', type=int, default=1, metavar='N',
                         help='Save snapshot interval ')
+    parser.add_argument('--no_others', action='store_true', help='Enables CUDA training')
 
     opt = parser.parse_args()
     print(opt)
