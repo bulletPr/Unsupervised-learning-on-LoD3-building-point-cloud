@@ -167,7 +167,10 @@ def main(opt):
         for i,cat in enumerate(seg_classes.keys()):
             seg_label_to_cat[i] = cat
     elif opt.dataset == 'arch':
-        class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}
+        if opt.no_others:
+            class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8}
+        else:
+            class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}
         seg_classes = class2label
         seg_label_to_cat = {}
         for i,cat in enumerate(seg_classes.keys()):
@@ -177,14 +180,16 @@ def main(opt):
     log_string('-Preparing dataset...')
     data_resized=False
     #train_path = os.path.join(ROOT_DIR, 'cache', 'latent_' + opt.pre_ae_epochs + '_' + opt.dataset + '_' +str(opt.feature_dims), 'features')
+    
+    if opt.no_others:
+        NUM_CLASSES = 9
+        arch_data_dir = 'arch_no_others_1.0m_pointnet_hdf5_data'
+    else:
+        NUM_CLASSES = 10
+        arch_data_dir = "arch_pointcnn_hdf5_2048"
     if(opt.percentage<100):        
         ResizeDataset(path=os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048"), percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
-    NUM_CLASSES = 10
-    if opt.no_others:
-        arch_data_dir = 'arch_no_others_1.0m_pointnet_hdf5_data'
-    else:
-        arch_data_dir = "arch_pointcnn_hdf5_2048"
     train_filelist = os.path.join(DATA_DIR, arch_data_dir, "train_data_files.txt")
     val_filelist = os.path.join(DATA_DIR, arch_data_dir, "val_data_files.txt")
     
@@ -192,9 +197,9 @@ def main(opt):
     train_dataset = arch_dataloader.get_dataloader(filelist=train_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
                                                 num_workers=4, group_shuffle=False, shuffle=True, random_translate=True, drop_last=True)
     log_string("classifer set size: " + str(train_dataset.dataset.__len__()))
-    val_dataset = arch_dataloader.get_dataloader(filelist=val_filelist, um_points=opt.num_points, batch_size=opt.batch_size, 
+    val_dataset = arch_dataloader.get_dataloader(filelist=val_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
                                                 num_workers=4, group_shuffle=False, shuffle=False, drop_last=False)
-    log_string("classifer set size: " + str(test_dataset.dataset.__len__()))
+    log_string("classifer set size: " + str(val_dataset.dataset.__len__()))
 
     # load the model for point auto encoder    
     ae_net = DGCNN_FoldNet(opt)
@@ -291,7 +296,7 @@ def main(opt):
             total_correct = 0
             total_seen = 0
             loss_sum = 0
-            n_batch= train_dataset.dataset.__len__()
+            n_batch= val_dataset.dataset.__len__()
             labelweights = np.zeros(NUM_CLASSES)
             total_seen_class = [0 for _ in range(NUM_CLASSES)]
             total_correct_class = [0 for _ in range(NUM_CLASSES)]
