@@ -125,7 +125,7 @@ def main(opt):
 
 # load dataset
     if opt.dataset=='s3dis':
-        print('-Preparing Loading s3dis evaluation dataset...')
+        print('-Preparing Loading s3dis test dataset...')
         root = os.path.join(DATA_DIR,'stanford_indoor3d')
         NUM_CLASSES = 13
         NUM_POINT = opt.num_points

@@ -137,8 +137,10 @@ def main(opt):
     
     snapshot_root = 'snapshot/%s' %experiment_id
     tensorboard_root = 'tensorboard/%s' %experiment_id
+    heatmap_root = 'heatmap/%s' &experiment_id
     save_dir = os.path.join(ROOT_DIR, snapshot_root, 'models/')
     tboard_dir = os.path.join(ROOT_DIR, tensorboard_root)
+    hmap_dir = os.path.join(ROOT_DIR, heatmap_root)
     
     #create folder to save trained models
     if opt.model == '':
@@ -156,6 +158,11 @@ def main(opt):
         else:
             shutil.rmtree(tboard_dir)
             os.makedirs(tboard_dir)
+        if not os.path.exists(hmap_dir):
+            os.makedirs(hmap_dir)
+        else:
+            shutil.rmtree(hmap_dir)
+            os.makedirs(hmap_dir)
     writer = SummaryWriter(log_dir = tboard_dir)
 
     #generate part label one-hot correspondence from the catagory:
@@ -198,7 +205,7 @@ def main(opt):
                                                 num_workers=4, group_shuffle=False, shuffle=True, random_translate=True, drop_last=True)
     log_string("classifer set size: " + str(train_dataset.dataset.__len__()))
     val_dataset = arch_dataloader.get_dataloader(filelist=val_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False, shuffle=False, drop_last=False)
+                                                num_workers=4, group_shuffle=False, shuffle=False, random_translate=True, drop_last=False)
     log_string("classifer set size: " + str(val_dataset.dataset.__len__()))
 
     # load the model for point auto encoder    
@@ -311,7 +318,6 @@ def main(opt):
                 if opt.gpu_mode:
                     points_ = points_.cuda()
                 _, latent_caps, mid_features = ae_net(points_)
-                #reconstructions=reconstructions.data.cpu()
                 con_code = torch.cat([latent_caps.view(-1,opt.feat_dims,1).repeat(1,1,opt.num_points), mid_features],1).cpu().detach().numpy()
                 latent_caps = torch.from_numpy(con_code).float()
                 if(latent_caps.size(0)<opt.batch_size):
@@ -332,14 +338,12 @@ def main(opt):
                 loss = F.nll_loss(output_digit, target)
                 loss_sum +=loss
                 
-                #pred_choice = output.data.cpu().max(1)[1]
                 correct = np.sum((pred_val == batch_label))
                 total_correct += correct
                 total_seen += (opt.batch_size * opt.num_points)
                 tmp, _ = np.histogram(batch_label, range(NUM_CLASSES + 1))
                 labelweights += tmp
-                #print("batch_label shape: " + str(batch_label.shape))
-                #print("pred_val shape: " + str(pred_val.shape))
+
                 for l in range(NUM_CLASSES):
                     total_seen_class[l] += np.sum((batch_label == l) )
                     total_correct_class[l] += np.sum((pred_val == l) & (batch_label == l) )
@@ -365,6 +369,14 @@ def main(opt):
                 best_iou = mIoU
                 _snapshot(save_dir, sem_seg_net, 'best', opt)
                 log_string('Saving model....')
+                mat = confusion_matrix(target.cpu().data.numpy(), output.data.cpu().max(1)[1].reshape((-1,3)).numpy())
+                plt.figure(figsize=(10, 16))
+                sns.heatmap(mat.T, square=True, annot=True, fmt='d', cbar=False, cmap='YlOrRd',
+                xticklabels=seg_label_to_cat[...],
+                yticklabels=seg_label_to_cat[...])
+                plt.xlabel('true label')
+                plt.ylabel('predicted label')
+                plt.savefig("hmap_dir/heatmap_%s_%s.png"%(epoch+1, self.percent), dpi=300)
             log_string('Best mIoU: %f at epoch %d' % (best_iou, epoch+1))
     log_string("Training finish!... save training results")
 
