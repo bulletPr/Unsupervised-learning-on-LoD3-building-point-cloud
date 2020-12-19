@@ -34,6 +34,16 @@ from torch.autograd import Variable
 from model import DGCNN_FoldNet
 from semseg_net import SemSegNet
 
+import matplotlib.pyplot as plt
+from scipy import stats
+import seaborn as sns; sns.set()
+from sklearn.metrics import classification_report
+from sklearn.metrics import confusion_matrix
+
+
+# ----------------------------------------
+# Import initial roots
+# ----------------------------------------
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
@@ -47,6 +57,9 @@ from net_utils import Logger
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 
 
+# ----------------------------------------
+# Resize training data size
+# ----------------------------------------
 def ResizeDataset(path, percentage, n_classes, shuffle):
     #dataset_main_path=os.path.abspath(os.path.join(ROOT_DIR, 'cache'))
     ori_file_name=os.path.join(path,'saved_train_with_sem_label.h5')           
@@ -98,7 +111,11 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
     print('Finished resizing data to size of :', np.sum(class_dist_new))
     print ('class distribution of resized dataset :',class_dist_new)
     fw.close
-    
+
+
+# ----------------------------------------
+# Load pretained model
+# ----------------------------------------
 def load_pretrain(model, pretrain):
         state_dict = torch.load(pretrain, map_location='cpu')
         from collections import OrderedDict
@@ -113,6 +130,10 @@ def load_pretrain(model, pretrain):
         print(f"Load model from {pretrain}")
         return model  
 
+
+# ----------------------------------------
+# save model
+# ----------------------------------------
 def _snapshot(save_dir, model, epoch, opt):
     state_dict = model.state_dict()
     from collections import OrderedDict
@@ -125,8 +146,12 @@ def _snapshot(save_dir, model, epoch, opt):
         new_state_dict[name] = val
     save_dir = os.path.join(save_dir, opt.dataset)
     torch.save(new_state_dict, save_dir+'_training_data_at_epoch_' + str(epoch) + '.pkl')
-    print(f"Save model to {save_dir}_{str(epoch)}.pkl")
+    print(f"Save model to {save_dir}+'_training_data_at_epoch_' + str({epoch}).pkl")
 
+
+# ----------------------------------------
+# Train semantic segmentation network
+# ----------------------------------------
 def main(opt):
     experiment_id = 'Semantic_segmentation_'+ opt.encoder +'_' +opt.pre_ae_epochs + '_' + str(opt.feat_dims) + '_' + opt.dataset+'_' + str(opt.percentage)+'_percent'
     LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG', experiment_id+'_train_log.txt'), 'w')
@@ -137,7 +162,7 @@ def main(opt):
     
     snapshot_root = 'snapshot/%s' %experiment_id
     tensorboard_root = 'tensorboard/%s' %experiment_id
-    heatmap_root = 'heatmap/%s' &experiment_id
+    heatmap_root = 'heatmap/%s' %experiment_id
     save_dir = os.path.join(ROOT_DIR, snapshot_root, 'models/')
     tboard_dir = os.path.join(ROOT_DIR, tensorboard_root)
     hmap_dir = os.path.join(ROOT_DIR, heatmap_root)
@@ -364,19 +389,18 @@ def main(opt):
             writer.add_scalar('Eval Loss', loss_sum / float(n_batch), epoch)
             writer.add_scalar('Eval mIoU', mIoU, epoch)
             writer.add_scalar('Eval Point accuracy', total_correct / float(total_seen), epoch)
-
             if mIoU >= best_iou:
                 best_iou = mIoU
                 _snapshot(save_dir, sem_seg_net, 'best', opt)
                 log_string('Saving model....')
-                mat = confusion_matrix(target.cpu().data.numpy(), output.data.cpu().max(1)[1].reshape((-1,3)).numpy())
+                mat = confusion_matrix(target.cpu().data.reshape((-1,1)).numpy(), output.data.cpu().max(1)[1].reshape((-1,1)).numpy())
                 plt.figure(figsize=(10, 16))
                 sns.heatmap(mat.T, square=True, annot=True, fmt='d', cbar=False, cmap='YlOrRd',
                 xticklabels=seg_label_to_cat[...],
                 yticklabels=seg_label_to_cat[...])
                 plt.xlabel('true label')
                 plt.ylabel('predicted label')
-                plt.savefig("hmap_dir/heatmap_%s_%s.png"%(epoch+1, self.percent), dpi=300)
+                plt.savefig("%s/heatmap_%s_%s.png"%(hmap_dir, epoch+1, self.percent), dpi=300)
             log_string('Best mIoU: %f at epoch %d' % (best_iou, epoch+1))
     log_string("Training finish!... save training results")
 
