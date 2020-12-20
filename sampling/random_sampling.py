@@ -39,8 +39,8 @@ def load_h5_seg(h5_filename):
     return data, label
 
 def main(args):
-    root = args.folder if args.folder else os.path.join(ROOT_DIR, 'data', 'arch_pointcnn_hdf5_8196')
-    folders = [os.path.join(root, folder) for folder in ['test', 'train']]
+    root = args.folder if args.folder else os.path.join(ROOT_DIR, 'data', 'arch_pointcnn_hdf5_8192')
+    folders = [os.path.join(root, folder) for folder in ['test', 'train', 'val']]
 
     for folder in folders:
         datasets = os.listdir(folder)
@@ -58,7 +58,7 @@ def main(args):
             
             labels_sampled = label_seg[:,indices]
             print(labels_sampled.shape)
-            foldname = os.path.join(ROOT_DIR, 'data', 'arch_hdf5_%s'%args.sample_number, folder)
+            foldname = os.path.join(ROOT_DIR, 'data', 'arch_hdf5_%s'%args.sample_number, folder.split('/')[-1])
             sampled_filename = os.path.join(foldname, dataset[:-3] + '_%s_sampled.h5'%args.sample_number)
             file = h5py.File(sampled_filename, 'w')
             file.create_dataset('data', data=points_sampled)

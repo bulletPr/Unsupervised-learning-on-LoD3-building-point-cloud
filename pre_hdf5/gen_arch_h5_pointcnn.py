@@ -59,7 +59,7 @@ def main():
     if args.save_ply:
         data_center = np.zeros((batch_size, max_point_num, 3))
     datasets=[]
-    folders = [os.path.join(root, folder) for folder in ['test', 'train']]
+    folders = [os.path.join(root, folder) for folder in ['test', 'train', 'val']]
     for folder in folders:
         datasets = os.listdir(folder)
         for dataset_idx, dataset in enumerate(datasets):
@@ -194,7 +194,7 @@ def main():
                         if ((idx + 1) % batch_size == 0) or \
                                 (block_idx == idx_last_non_empty_block and block_split_idx == block_split_num - 1):
                             item_num = idx_in_batch + 1
-                            filename_h5 = os.path.join(folder, dataset + '_8196_%s_%d.h5' % (offset_name, idx_h5))
+                            filename_h5 = os.path.join(folder, dataset[:-4] + '_8196_%s_%d.h5' % (offset_name, idx_h5))
                             print('{}-Saving {}...'.format(datetime.now(), filename_h5))
                             
                             file = h5py.File(filename_h5, 'w')
