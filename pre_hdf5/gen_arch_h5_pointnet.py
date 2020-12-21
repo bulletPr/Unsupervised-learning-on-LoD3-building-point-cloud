@@ -45,12 +45,12 @@ data_dtype = np.float32
 label_dtype = np.int8
 
 if args.data_dir == 'arch':
-    output_dir = os.path.join(ROOT_DIR, 'data', 'arch_{}m_pointnet_hdf5_data'.format(args.block_size, args.stride), args.split)
+    output_dir = os.path.join(ROOT_DIR, 'data', 'arch_{}m_pointnet_hdf5_data'.format(args.block_size), args.split)
 else:
-    output_dir = os.path.join(ROOT_DIR, 'data', '{}_{}m_pointnet_hdf5_data'.format(args.data_dir, args.block_size, args.stride), args.split)
-
+    output_dir = os.path.join(ROOT_DIR, 'data', '{}_{}m_pointnet_hdf5_data'.format(args.data_dir, args.block_size), args.split)
+if not os.path.exists(os.path.join(ROOT_DIR, 'data', '{}_{}m_pointnet_hdf5_data'.format(args.data_dir, args.block_size))):
+    os.mkdir(os.path.join(ROOT_DIR, 'data', '{}_{}m_pointnet_hdf5_data'.format(args.data_dir, args.block_size)))
 if not os.path.exists(output_dir):
-    os.mkdir(os.path.join(ROOT_DIR, 'data', '{}_{}m_pointnet_hdf5_data'.format(args.data_dir, args.block_size, args.stride)))
     os.mkdir(output_dir)
 output_filename_prefix = os.path.join(output_dir, 'h5_data_all')
 

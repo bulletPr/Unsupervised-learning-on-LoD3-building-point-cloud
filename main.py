@@ -90,6 +90,8 @@ def get_parser():
                         help='SVM to use, [arch, shapenetcorev2, shapenetpart, modelnet40]')
     parser.add_argument('--classes', type=int, default=40, metavar='N',
                         help='Number of categories or parts or semantic classes')
+    parser.add_argument('--no_others', action='store_true', help='Enables CUDA training')
+    parser.add_argument('--folder', '-f', help='path to data file')
     args = parser.parse_args()
     return args
 

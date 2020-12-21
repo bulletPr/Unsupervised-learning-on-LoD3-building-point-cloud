@@ -119,6 +119,20 @@ class Train_AE(object):
             self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, group_shuffle=True, 
                                     random_rotate = args.use_rotate, random_jitter=args.use_jitter, random_translate=args.use_translate, shuffle=True)
             print("training set size: ", self.train_loader.dataset.__len__())
+        
+        elif self.dataset_name == 'all_arch':
+            # initial dataset filelist
+            if args.no_others:
+                arch_data_dir = args.folder if args.folder else 'arch_no_others_pointcnn_hdf5_'+str(args.num_points)
+            else:
+                arch_data_dir = args.folder if args.folder else 'arch_pointcnn_hdf5_'+str(args.num_points)
+            print('-Preparing dataset file list...')
+            filelist = os.path.join(DATA_DIR, arch_data_dir, "train_data_files.txt")
+        
+            print('-Now loading ArCH dataset...')
+            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, num_points=args.num_points, group_shuffle=False, 
+                                    random_rotate = args.use_rotate, random_jitter=args.use_jitter, random_translate=args.use_translate, shuffle=True, drop_last=True)
+            print("training set size: ", self.train_loader.dataset.__len__())
        
         elif self.dataset_name == 'shapenetcorev2':
             print('-Loading ShapeNetCore dataset...')

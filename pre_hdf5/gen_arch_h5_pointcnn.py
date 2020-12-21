@@ -1,3 +1,4 @@
+
 #
 #
 #      0=================================0
@@ -59,7 +60,7 @@ def main():
     if args.save_ply:
         data_center = np.zeros((batch_size, max_point_num, 3))
     datasets=[]
-    folders = [os.path.join(root, folder) for folder in ['test', 'train', 'val']]
+    folders = [os.path.join(root, folder) for folder in ['test', 'train']]
     for folder in folders:
         datasets = os.listdir(folder)
         for dataset_idx, dataset in enumerate(datasets):
@@ -70,11 +71,11 @@ def main():
             labels = xyzrgbl[:,-1]
 
             xyz = xyzrgbl[:,0:3]
-            xyz_min = np.amin(xyz, axis=0, keepdims = True)
-            xyz_max = np.amax(xyz, axis=0, keepdims = True)
-            xyz_center = (xyz_min + xyz_max) / 2
+            xyz_min = np.amin(xyz, axis=0, keepdims=True)
+            xyz_max = np.amax(xyz,axis=0,keepdims=True)
+            xyz_center = (xyz_min+xyz_max)/2
             xyz_center[0][-1] = xyz_min[0][-1]
-            xyz = xyz - xyz_center   # align to scene bottom center
+            xyz = xyz - xyz_center
             rgb = xyzrgbl[:,3:6] / 255 - 0.5
 
             offsets = [('zero', 0.0), ('half', args.block_size / 2)]
@@ -194,7 +195,7 @@ def main():
                         if ((idx + 1) % batch_size == 0) or \
                                 (block_idx == idx_last_non_empty_block and block_split_idx == block_split_num - 1):
                             item_num = idx_in_batch + 1
-                            filename_h5 = os.path.join(folder, dataset[:-4] + '_8196_%s_%d.h5' % (offset_name, idx_h5))
+                            filename_h5 = os.path.join(folder, dataset + '_8196_%s_%d.h5' % (offset_name, idx_h5))
                             print('{}-Saving {}...'.format(datetime.now(), filename_h5))
                             
                             file = h5py.File(filename_h5, 'w')

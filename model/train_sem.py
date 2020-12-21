@@ -34,12 +34,6 @@ from torch.autograd import Variable
 from model import DGCNN_FoldNet
 from semseg_net import SemSegNet
 
-import matplotlib.pyplot as plt
-from scipy import stats
-import seaborn as sns; sns.set()
-from sklearn.metrics import classification_report
-from sklearn.metrics import confusion_matrix
-
 
 # ----------------------------------------
 # Import initial roots
@@ -146,7 +140,7 @@ def _snapshot(save_dir, model, epoch, opt):
         new_state_dict[name] = val
     save_dir = os.path.join(save_dir, opt.dataset)
     torch.save(new_state_dict, save_dir+'_training_data_at_epoch_' + str(epoch) + '.pkl')
-    print(f"Save model to {save_dir}+'_training_data_at_epoch_' + str({epoch}).pkl")
+    print(f"Save model to {save_dir}+'_training_data_at_epoch_' + str({epoch})+'.pkl'")
 
 
 # ----------------------------------------
@@ -215,10 +209,10 @@ def main(opt):
     
     if opt.no_others:
         NUM_CLASSES = 9
-        arch_data_dir = 'arch_no_others_1.0m_pointnet_hdf5_data'
+        arch_data_dir = opt.folder if opt.folder else 'arch_no_others_1.0m_pointnet_hdf5_data'
     else:
         NUM_CLASSES = 10
-        arch_data_dir = "arch_pointcnn_hdf5_2048"
+        arch_data_dir = opt.folder if opt.folder else "arch_pointcnn_hdf5_2048"
     if(opt.percentage<100):        
         ResizeDataset(path=os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048"), percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
@@ -227,10 +221,10 @@ def main(opt):
     
     # load training data
     train_dataset = arch_dataloader.get_dataloader(filelist=train_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False, shuffle=True, random_translate=True, drop_last=True)
+                                                num_workers=4, group_shuffle=False, shuffle=True, random_translate=opt.use_translate, drop_last=True)
     log_string("classifer set size: " + str(train_dataset.dataset.__len__()))
     val_dataset = arch_dataloader.get_dataloader(filelist=val_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False, shuffle=False, random_translate=True, drop_last=False)
+                                                num_workers=4, group_shuffle=False, shuffle=False, random_translate=opt.use_translate, drop_last=False)
     log_string("classifer set size: " + str(val_dataset.dataset.__len__()))
 
     # load the model for point auto encoder    
@@ -350,19 +344,20 @@ def main(opt):
                 latent_caps, target = Variable(latent_caps), Variable(target)    
                 if opt.gpu_mode:
                     latent_caps,target = latent_caps.cuda(), target.cuda()
-                batch_label = target.cpu().data.numpy()
+                batch_label = target.cpu().data.numpy() #(8, 4096)
                 #output
                 sem_seg_net = sem_seg_net.eval() 
-                output=sem_seg_net(latent_caps)
+                output=sem_seg_net(latent_caps) #([8, 4096, n_classes])
                 #output to prediction
                 pred_val = output.contiguous().cpu().data.numpy()
-                pred_val = np.argmax(pred_val, 2)
+                pred_val = np.argmax(pred_val, 2) #(8, 4096)
+
                 #convert output to calculate loss
-                output = output.view(-1, opt.n_classes)     
-                target= target.view(-1,1)[:,0]
+                output_digit = output.view(-1, opt.n_classes) #([32768, 10])  
+                target= target.view(-1,1)[:,0] #[32768]
+                #print("target shape: " + str(target.shape))
                 loss = F.nll_loss(output_digit, target)
                 loss_sum +=loss
-                
                 correct = np.sum((pred_val == batch_label))
                 total_correct += correct
                 total_seen += (opt.batch_size * opt.num_points)
@@ -393,14 +388,6 @@ def main(opt):
                 best_iou = mIoU
                 _snapshot(save_dir, sem_seg_net, 'best', opt)
                 log_string('Saving model....')
-                mat = confusion_matrix(target.cpu().data.reshape((-1,1)).numpy(), output.data.cpu().max(1)[1].reshape((-1,1)).numpy())
-                plt.figure(figsize=(10, 16))
-                sns.heatmap(mat.T, square=True, annot=True, fmt='d', cbar=False, cmap='YlOrRd',
-                xticklabels=seg_label_to_cat[...],
-                yticklabels=seg_label_to_cat[...])
-                plt.xlabel('true label')
-                plt.ylabel('predicted label')
-                plt.savefig("%s/heatmap_%s_%s.png"%(hmap_dir, epoch+1, self.percent), dpi=300)
             log_string('Best mIoU: %f at epoch %d' % (best_iou, epoch+1))
     log_string("Training finish!... save training results")
 
@@ -424,9 +411,11 @@ if __name__ == "__main__":
     parser.add_argument('--feat_dims', type=int, default=1024)
     parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
                         help='reconstruction loss')
+    parser.add_argument('--use_translate', action='store_true', help='Enables CUDA training')
     parser.add_argument('--snapshot_interval', type=int, default=1, metavar='N',
                         help='Save snapshot interval ')
     parser.add_argument('--no_others', action='store_true', help='Enables CUDA training')
+    parser.add_argument('--folder', '-f', help='path to data file')
 
     opt = parser.parse_args()
     print(opt)

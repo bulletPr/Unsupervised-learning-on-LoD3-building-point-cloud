@@ -182,8 +182,12 @@ class FoldNet_Encoder(nn.Module):
 class FoldNet_Decoder(nn.Module):
     def __init__(self, args):
         super(FoldNet_Decoder, self).__init__()
-        self.m = 2025
-        self.meshgrid=[[-0.3,0.3,45], [-0.3,0.3,45]]
+        if args.num_points == 2048:
+            self.m = 2025
+            self.meshgrid=[[-0.3,0.3,45], [-0.3,0.3,45]]
+        elif args.num_points == 4096:
+            self.m = 4096
+            self.meshgrid=[[-0.3,0.3,64], [-0.3,0.3,64]]
         self.folding1 = nn.Sequential(
                 nn.Conv1d(args.feat_dims+2, args.feat_dims, 1),
                 nn.ReLU(),
