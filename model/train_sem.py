@@ -201,20 +201,29 @@ def main(opt):
         seg_label_to_cat = {}
         for i,cat in enumerate(seg_classes.keys()):
             seg_label_to_cat[i] = cat
+    elif opt.dataset == 'arch_scene_2':
+        class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7}
+        seg_classes = class2label
+        seg_label_to_cat = {}
+        for i,cat in enumerate(seg_classes.keys()):
+            seg_label_to_cat[i] = cat
 
     # load the dataset
     log_string('-Preparing dataset...')
     data_resized=False
     #train_path = os.path.join(ROOT_DIR, 'cache', 'latent_' + opt.pre_ae_epochs + '_' + opt.dataset + '_' +str(opt.feature_dims), 'features')
-    
-    if opt.no_others:
-        NUM_CLASSES = 9
-        arch_data_dir = opt.folder if opt.folder else 'arch_no_others_1.0m_pointnet_hdf5_data'
-    else:
-        NUM_CLASSES = 10
-        arch_data_dir = opt.folder if opt.folder else "arch_pointcnn_hdf5_2048"
+    if opt.dataset == 'arch':
+        if opt.no_others:
+            NUM_CLASSES = 9
+            arch_data_dir = opt.folder if opt.folder else 'arch_no_others_1.0m_pointnet_hdf5_data'
+        else:
+            NUM_CLASSES = 10
+            arch_data_dir = opt.folder if opt.folder else "arch_pointcnn_hdf5_2048"
+    elif opt.dataset == 'arch_scene_2':
+            NUM_CLASSES = 8
+            arch_data_dir = opt.folder if opt.folder else "scene_2_1.0m_pointnet_hdf5_data"
     if(opt.percentage<100):        
-        ResizeDataset(path=os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048"), percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
+        ResizeDataset(path=os.path.join(DATA_DIR, arch_data_dir), percentage=opt.percentage, n_classes=opt.n_classes,shuffle=True)
         data_resized=True
     train_filelist = os.path.join(DATA_DIR, arch_data_dir, "train_data_files.txt")
     val_filelist = os.path.join(DATA_DIR, arch_data_dir, "val_data_files.txt")
@@ -395,7 +404,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--n_epochs', type=int, default=200, help='number of epochs to train for')
     parser.add_argument('--pre_ae_epochs', type=str, default='shapenetcorev2_best', help='choose which pre-trained ae to use')
-    parser.add_argument('--batch_size', type=int, default=8, help='input batch size')
+    parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
     parser.add_argument('--gpu_mode', action='store_true', help='Enables CUDA training')
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
     parser.add_argument('--model', type=str, default='', help='model path')

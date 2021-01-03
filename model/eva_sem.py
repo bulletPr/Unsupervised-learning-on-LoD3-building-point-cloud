@@ -85,8 +85,12 @@ def main(opt):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
     if opt.visual:
-        fout = open(os.path.join(save_dir, 'Scene_A_pred.obj'),'w')
-        fout_gt = open(os.path.join(save_dir, 'Scene_A_gt.obj'), 'w')
+        if opt.dataset == 'arch':
+            fout = open(os.path.join(save_dir, 'Scene_A_pred.obj'),'w')
+            fout_gt = open(os.path.join(save_dir, 'Scene_A_gt.obj'), 'w')
+        elif opt.dataset == 'arch_scene_2':
+            fout = open(os.path.join(save_dir, 'Scene_2_pred.obj'),'w')
+            fout_gt = open(os.path.join(save_dir, 'Scene_2_gt.obj'), 'w')
     
 # generate part label one-hot correspondence from the catagory:
     if opt.dataset == 's3dis':
@@ -97,7 +101,16 @@ def main(opt):
         for i,cat in enumerate(seg_classes.keys()):
             seg_label_to_cat[i] = cat
     elif opt.dataset == 'arch':
-        class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}
+        if opt.no_others:
+            class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8}
+        else:
+            class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7, "roof":8, "other":9}
+        seg_classes = class2label
+        seg_label_to_cat = {}
+        for i,cat in enumerate(seg_classes.keys()):
+            seg_label_to_cat[i] = cat
+    elif opt.dataset == 'arch_scene_2':
+        class2label = {"arch":0, "column":1, "moldings":2, "floor":3, "door_window":4, "wall":5, "stairs":6, "vault":7}
         seg_classes = class2label
         seg_label_to_cat = {}
         for i,cat in enumerate(seg_classes.keys()):
@@ -114,9 +127,9 @@ def main(opt):
     
 # load the model for capsule wised part segmentation
     if opt.feat_dims == 512:      
-        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, feat_dims=True)    
+        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, dropout=opt.dropout, feat_dims=True, with_rgb=False)    
     elif opt.feat_dims == 1024:
-        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder)
+        sem_seg_net = SemSegNet(num_class=opt.n_classes, encoder=opt.encoder, dropout=opt.dropout)
     if opt.seg_model != '':
         sem_seg_net=load_pretrain(sem_seg_net, os.path.join(ROOT_DIR,opt.seg_model))
     if USE_CUDA:
@@ -137,14 +150,27 @@ def main(opt):
 
     elif opt.dataset == 'arch':
         print('-Preparing Loading ArCH evaluation dataset...')
-        NUM_CLASSES = 10
+        if opt.no_others:
+            NUM_CLASSES = 9
+            arch_dir = opt.folder if opt.folder else 'arch_no_others_1.0m_pointnet_hdf5_data'
+        else:
+            NUM_CLASSES = 10
+            arch_dir = opt.folder if opt.folder else "arch_pointcnn_hdf5_2048"
         log_string('-Now loading test ArCH dataset...')
-        filelist = os.path.join(DATA_DIR, "arch_pointcnn_hdf5_2048", "test_data_files.txt")
+        filelist = os.path.join(DATA_DIR, arch_dir, "test_data_files.txt")
         # load test data
-        dataloader = arch_dataloader.get_dataloader(filelist=filelist, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False,shuffle=False, random_rotate=False, random_jitter=False,random_translate=True, drop_last=False)
+        dataloader = arch_dataloader.get_dataloader(filelist=filelist, batch_size=opt.batch_size, num_points = opt.num_points,
+                                                num_workers=4, group_shuffle=False,shuffle=False, random_rotate=False, random_jitter=False,random_translate=opt.use_translate, drop_last=False)
         log_string("classifer set size: " + str(dataloader.dataset.__len__()))
-
+    elif opt.dataset == 'arch_scene_2':
+        NUM_CLASSES = 8
+        print('-Preparing Loading ArCH evaluation dataset...')
+        log_string('-Now loading test ArCH dataset...')
+        filelist = os.path.join(DATA_DIR, "scene_2_1.0m_pointnet_hdf5_data", "test_data_files.txt")
+        # load test data
+        dataloader = arch_dataloader.get_dataloader(filelist=filelist, batch_size=opt.batch_size, num_points = opt.num_points,
+                                                num_workers=4, group_shuffle=False,shuffle=False, random_rotate=False, random_jitter=False,random_translate=opt.use_translate, drop_last=False)
+        log_string("classifer set size: " + str(dataloader.dataset.__len__()))
     correct_sum=0
     total_seen_class = [0 for _ in range(NUM_CLASSES)]
     total_correct_class = [0 for _ in range(NUM_CLASSES)]
@@ -209,11 +235,15 @@ def main(opt):
     if opt.visual:
         log_string('Writing results...')
         sparse_labels = np.array(pd_labels_collector).astype(int).flatten()
-        np.savetxt(save_dir+'/Scene_A_pd_labels.txt', sparse_labels, fmt='%d', delimiter='\n')
-        log_string("Exported sparse labels to {}".format(save_dir+'/Scene_A_pd_labels.txt'))
+        if opt.dataset == 'arch':
+            label_filename = save_dir + '/Scene_A_pd_labels.txt'
+        elif opt.dataset == 'arch_scene_2':
+            label_filename = save_dir + '/Scene_2_pd_labels.txt'
+        np.savetxt(label_filename, sparse_labels, fmt='%d', delimiter='\n')
+        log_string("Exported sparse labels to {}".format(label_filename))
         gt_labels = np.array(gt_labels_collector).astype(int).flatten()
-        np.savetxt(save_dir+'/Scene_A_gt_labels.txt', gt_labels, fmt='%d', delimiter='\n')
-        log_string("Exported sparse labels to {}".format(save_dir+'/Scene_A_gt_labels.txt'))
+        np.savetxt(label_filename, gt_labels, fmt='%d', delimiter='\n')
+        log_string("Exported sparse labels to {}".format(label_filename))
         #print(points_collector.size())
         sparse_points = np.array(points_collector).reshape((-1, 3))
 
@@ -256,14 +286,19 @@ if __name__ == "__main__":
     parser.add_argument('--num_points', type=int, default=2048, help='input point set size')
     parser.add_argument('--seg_model', type=str, default='snapshot/Semantic_segmentation_arch_1024_100/models/arch_training_data_at_epoch136.pkl', help='model path for the pre-trained part segmentation network')
     parser.add_argument('--ae_model', type=str, default='snapshot/Reconstruct_shapenet_foldingnet_1024/models/shapenetcorev2_best.pkl', help='model path')
-    parser.add_argument('--dataset', type=str, default='arch', help='dataset: arch, shapenet_part, shapenet_core13, shapenet_core55, modelent40')
+    parser.add_argument('--dataset', type=str, default='arch', help='dataset: arch, arch_scene_2, shapenet_part, shapenet_core13, shapenet_core55, modelent40')
     parser.add_argument('--n_classes', type=int, default=10, help='part classes in all the catagories')
     parser.add_argument('--class_choice', type=str, default=None, help='choose the class to eva')
     parser.add_argument('--k', type=int, default=None)
     parser.add_argument('--feat_dims', type=int, default=1024)
     parser.add_argument('--loss', type=str, default='ChamferLoss_m', choices=['ChamferLoss_m','ChamferLoss'],
                         help='reconstruction loss')
+    parser.add_argument('--use_translate', action='store_true', help='Enables CUDA training')
     parser.add_argument('--visual', action='store_true', default=True, help='Whether visualize result [default: False]')
+    parser.add_argument('--no_others', action='store_true', help='Enables CUDA training')
+    parser.add_argument('--folder', '-f', help='path to data file')
+    parser.add_argument('--dropout', action='store_true',
+                        help='Enables dropout when training')
 
     opt = parser.parse_args()
     print(opt)
