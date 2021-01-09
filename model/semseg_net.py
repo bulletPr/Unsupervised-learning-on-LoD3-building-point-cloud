@@ -46,7 +46,10 @@ class SemSegNet(nn.Module):
             else:
                 self.conv1 = torch.nn.Conv1d(1088, 512, 1)
         else:
-            self.conv1 = torch.nn.Conv1d(1216, 512, 1)
+            if feat_dims: #512
+                self.conv1 = torch.nn.Conv1d(704, 512, 1)
+            else:
+                self.conv1 = torch.nn.Conv1d(1216, 512, 1)
         self.conv2 = torch.nn.Conv1d(512, 256, 1)
         self.conv3 = torch.nn.Conv1d(256, 128, 1)
         self.conv4 = torch.nn.Conv1d(128, self.num_class, 1)
