@@ -236,14 +236,16 @@ def main(opt):
         log_string('Writing results...')
         sparse_labels = np.array(pd_labels_collector).astype(int).flatten()
         if opt.dataset == 'arch':
-            label_filename = save_dir + '/Scene_A_pd_labels.txt'
+            pd_label_filename = save_dir + '/Scene_A_pd_labels.txt'
+            gt_label_fileneame = save_dir + '/Scene_A_gt_labels.txt'
         elif opt.dataset == 'arch_scene_2':
-            label_filename = save_dir + '/Scene_2_pd_labels.txt'
-        np.savetxt(label_filename, sparse_labels, fmt='%d', delimiter='\n')
-        log_string("Exported sparse labels to {}".format(label_filename))
+            pd_label_filename = save_dir + '/Scene_2_pd_labels.txt'
+            gt_label_filename = save_dir + '/Scene_2_gt_labels.txt'
+        np.savetxt(pd_label_filename, sparse_labels, fmt='%d', delimiter='\n')
+        log_string("Exported sparse labels to {}".format(pd_label_filename))
         gt_labels = np.array(gt_labels_collector).astype(int).flatten()
-        np.savetxt(label_filename, gt_labels, fmt='%d', delimiter='\n')
-        log_string("Exported sparse labels to {}".format(label_filename))
+        np.savetxt(gt_label_filename, gt_labels, fmt='%d', delimiter='\n')
+        log_string("Exported sparse labels to {}".format(gt_label_filename))
         #print(points_collector.size())
         sparse_points = np.array(points_collector).reshape((-1, 3))
 

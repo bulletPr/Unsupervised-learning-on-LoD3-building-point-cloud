@@ -111,18 +111,18 @@ def ResizeDataset(path, percentage, n_classes, shuffle):
 # Load pretained model
 # ----------------------------------------
 def load_pretrain(model, pretrain):
-        state_dict = torch.load(pretrain, map_location='cpu')
-        from collections import OrderedDict
-        new_state_dict = OrderedDict()
-        for key, val in state_dict.items():
-            if key[:6] == 'module':
-                name = key[7:]  # remove 'module.'
-            else:
-                name = key
-            new_state_dict[name] = val
-        model.load_state_dict(new_state_dict)
-        print(f"Load model from {pretrain}")
-        return model  
+    state_dict = torch.load(pretrain, map_location='cpu')
+    from collections import OrderedDict
+    new_state_dict = OrderedDict()
+    for key, val in state_dict.items():
+        if key[:6] == 'module':
+            name = key[7:]  # remove 'module.'
+        else:
+            name = key
+        new_state_dict[name] = val
+    model.load_state_dict(new_state_dict)
+    print(f"Load model from {pretrain}")
+    return model  
 
 
 # ----------------------------------------
@@ -140,15 +140,15 @@ def _snapshot(save_dir, model, epoch, opt):
         new_state_dict[name] = val
     save_dir = os.path.join(save_dir, opt.dataset)
     torch.save(new_state_dict, save_dir+'_training_data_at_epoch_' + str(epoch) + '.pkl')
-    print(f"Save model to {save_dir}+'_training_data_at_epoch_' + str({epoch})+'.pkl'")
+    print(f"Save model to {save_dir}+'_training_data_at_epoch_{epoch}.pkl'")
 
 
 # ----------------------------------------
 # Train semantic segmentation network
 # ----------------------------------------
 def main(opt):
-    experiment_id = 'Semantic_segmentation_'+ opt.encoder +'_' +opt.pre_ae_epochs + '_' + str(opt.feat_dims) + '_' + opt.dataset+'_' + str(opt.percentage)+'_percent'
-    LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG', experiment_id+'_train_log.txt'), 'w')
+    experiment_id = 'Semantic_segmentation_'+ opt.encoder +'_' +opt.pre_ae_epochs + '_' + 	str(opt.feat_dims) + '_' + opt.dataset+'_' + str(opt.percentage)+'_percent'
+    LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG', experiment_id+'_train_log.txt'), 'a')
     def log_string(out_str):
         LOG_FOUT.write(out_str + '\n')
         LOG_FOUT.flush()
