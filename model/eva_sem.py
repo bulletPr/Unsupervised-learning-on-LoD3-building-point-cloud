@@ -237,7 +237,7 @@ def main(opt):
         sparse_labels = np.array(pd_labels_collector).astype(int).flatten()
         if opt.dataset == 'arch':
             pd_label_filename = save_dir + '/Scene_A_pd_labels.txt'
-            gt_label_fileneame = save_dir + '/Scene_A_gt_labels.txt'
+            gt_label_filename = save_dir + '/Scene_A_gt_labels.txt'
         elif opt.dataset == 'arch_scene_2':
             pd_label_filename = save_dir + '/Scene_2_pd_labels.txt'
             gt_label_filename = save_dir + '/Scene_2_gt_labels.txt'
