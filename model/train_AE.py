@@ -130,14 +130,14 @@ class Train_AE(object):
             filelist = os.path.join(DATA_DIR, arch_data_dir, "train_data_files.txt")
         
             print('-Now loading ArCH dataset...')
-            self.train_loader = get_dataloader(filelist=filepath, batch_size=args.batch_size, num_workers=args.workers, num_points=args.num_points, group_shuffle=False, 
+            self.train_loader = get_dataloader(filelist=filelist, batch_size=args.batch_size, num_workers=args.workers, num_points=args.num_points, group_shuffle=False, 
                                     random_rotate = args.use_rotate, random_jitter=args.use_jitter, random_translate=args.use_translate, shuffle=True, drop_last=True)
             print("training set size: ", self.train_loader.dataset.__len__())
        
         elif self.dataset_name == 'shapenetcorev2':
             print('-Loading ShapeNetCore dataset...')
             self.train_loader = get_shapenet_dataloader(root=DATA_DIR, dataset_name = self.dataset_name, split='train', batch_size=args.batch_size, 
-                                    num_workers=args.workers, num_points=args.num_points, shuffle=True, random_rotate = args.use_rotate, random_jitter=args.use_jitter)
+                                    num_workers=args.workers, num_points=args.num_points, shuffle=True, random_translate = args.use_translate, random_rotate = args.use_rotate, random_jitter=args.use_jitter)
             print("training set size: ", self.train_loader.dataset.__len__())
         
         #initial model
@@ -257,7 +257,7 @@ class Train_AE(object):
             new_state_dict[name] = val
         save_dir = os.path.join(self.save_dir, self.dataset_name)
         torch.save(new_state_dict, save_dir + "_" + str(epoch) + '.pkl')
-        print(f"Save model to {save_dir}_{str(epoch)}.pkl")
+        print(f"Save model to {save_dir}_{epoch}.pkl")
 
 
     def _load_pretrain(self, pretrain):

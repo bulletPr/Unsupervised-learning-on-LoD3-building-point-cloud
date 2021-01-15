@@ -41,7 +41,6 @@ def load_h5_seg(h5_filename):
 def main(args):
     root = args.folder if args.folder else os.path.join(ROOT_DIR, 'data', 'arch_pointcnn_hdf5_8196')
     folders = [os.path.join(root, folder) for folder in ['test', 'train', 'val']]
-
     for folder in folders:
         datasets = os.listdir(folder)
         for dataset_idx, dataset in enumerate(datasets):
@@ -57,7 +56,9 @@ def main(args):
             
             labels_sampled = label_seg[:,indices]
             print(labels_sampled.shape)
-            foldname = os.path.join(ROOT_DIR, 'data', 'arch_no_others_pointcnn_hdf5_%s'%args.sample_number, folder.split('/')[-1])
+            foldname = os.path.join(ROOT_DIR, 'data', args.outpath, folder.split('/')[-1])
+            if not os.path.exists(foldname):
+                os.makedirs(foldname)
             sampled_filename = os.path.join(foldname, dataset[:-3] + '_%s_sampled.h5'%args.sample_number)
             file = h5py.File(sampled_filename, 'w')
             file.create_dataset('data', data=points_sampled)
@@ -69,5 +70,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--sample_number', type=int, default=2048, help='input batch size')
     parser.add_argument('--folder', '-f', help='Path to data folder')
+    parser.add_argument('--outpath', '-f', help='Path to output data folder')
     args = parser.parse_args()
     main(args)

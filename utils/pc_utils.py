@@ -21,9 +21,14 @@
 # ----------------------------------------
 import numpy as np
 import h5py
-import common
+
 import os.path
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(BASE_DIR)
+sys.path.append(ROOT_DIR)
+sys.path.append(os.path.join(ROOT_DIR, 'pre_hdf5'))
+import common
 # ----------------------------------------
 # Point cloud argument
 # ----------------------------------------

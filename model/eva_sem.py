@@ -245,7 +245,7 @@ def main(opt):
         log_string("Exported sparse labels to {}".format(pd_label_filename))
         gt_labels = np.array(gt_labels_collector).astype(int).flatten()
         np.savetxt(gt_label_filename, gt_labels, fmt='%d', delimiter='\n')
-        log_string("Exported sparse labels to {}".format(gt_label_filename))
+        log_string("Exported gt labels to {}".format(gt_label_filename))
         #print(points_collector.size())
         sparse_points = np.array(points_collector).reshape((-1, 3))
 

@@ -19,7 +19,7 @@ def load_h5(path):
 
 
 class ModelNetH5Dataset(object):
-    def __init__(self, root=dataset_path, npoints=2048, train=False):
+    def __init__(self, root, npoints=2048, train=False):
         self.root=root
         self.npoints = npoints
         self.h5_files = []

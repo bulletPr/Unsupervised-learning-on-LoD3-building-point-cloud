@@ -25,8 +25,7 @@ sys.path.append(ROOT_DIR)
 sys.path.append(os.path.join(ROOT_DIR, 'model'))
 
 from train_AE import Train_AE
-import train_all_arch_AE
-from svm import SVM
+from train_cls import SVM
 #from train_part import Train_Part
 #from train_sem import Train_Sem
 
@@ -100,10 +99,7 @@ if __name__ == '__main__':
     args = get_parser()
 
     if args.eval == False:
-        if args.dataset == 'all_arch':
-            reconstruction = train_all_arch_AE.Train_AE(args)
-        else:
-            reconstruction = Train_AE(args)
+        reconstruction = Train_AE(args)
         reconstruction.run()
     else:
         if args.task == 'classification':

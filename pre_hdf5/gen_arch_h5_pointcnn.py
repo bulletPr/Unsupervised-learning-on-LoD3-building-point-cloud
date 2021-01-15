@@ -1,4 +1,3 @@
-
 #
 #
 #      0=================================0
@@ -39,6 +38,7 @@ import common
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--folder', '-f', help='Path to data folder')
+    parser.add_argument('--outpath', '-f', help='Path to output data folder')
     parser.add_argument('--max_point_num', '-m', help='Max point number of each sample', type=int, default=8192)
     parser.add_argument('--block_size', '-b', help='Block size', type=float, default=1.5)
     parser.add_argument('--grid_size', '-g', help='Grid size', type=float, default=0.03)
@@ -47,7 +47,8 @@ def main():
     args = parser.parse_args()
     print(args)
 
-    root = args.folder if args.folder else os.path.join(ROOT_DIR, 'data', 'arch')
+    root = os.path.join(ROOT_DIR, 'data', args.folder) if args.folder else os.path.join(ROOT_DIR, 'data', 'arch')
+    output_dir = os.path.join(ROOT_DIR, 'data', args.outpath)
     max_point_num = args.max_point_num
 
     batch_size = 2048
@@ -63,6 +64,8 @@ def main():
     folders = [os.path.join(root, folder) for folder in ['test', 'train']]
     for folder in folders:
         datasets = os.listdir(folder)
+        if not os.path.exists(os.path.join(output_dir, folder.split('/')[-1])):
+            os.makedirs(os.path.join(output_dir, folder.split('/')[-1]))
         for dataset_idx, dataset in enumerate(datasets):
             filename_txt = os.path.join(folder, dataset)
             print('{}-Loading {}...'.format(datetime.now(), filename_txt))
@@ -195,7 +198,7 @@ def main():
                         if ((idx + 1) % batch_size == 0) or \
                                 (block_idx == idx_last_non_empty_block and block_split_idx == block_split_num - 1):
                             item_num = idx_in_batch + 1
-                            filename_h5 = os.path.join(folder, dataset + '_8196_%s_%d.h5' % (offset_name, idx_h5))
+                            filename_h5 = os.path.join(output_dir, folder.split('/')[-1], dataset[:-4] + '_8192_%s_%d.h5' % (offset_name, idx_h5))
                             print('{}-Saving {}...'.format(datetime.now(), filename_h5))
                             
                             file = h5py.File(filename_h5, 'w')
