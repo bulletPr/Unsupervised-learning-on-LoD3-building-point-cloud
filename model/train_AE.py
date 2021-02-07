@@ -30,6 +30,7 @@ import torch.optim as optim
 
 from tensorboardX import SummaryWriter
 from model import DGCNN_FoldNet
+from model_feat9 import DGCNN_FoldNet_feat
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
@@ -141,7 +142,10 @@ class Train_AE(object):
             print("training set size: ", self.train_loader.dataset.__len__())
         
         #initial model
-        self.model = DGCNN_FoldNet(args)
+        if args.num_dims == 3:
+            self.model = DGCNN_FoldNet(args)
+        else:
+            self.model = DGCNN_FoldNet_feat(args)
         #load pretrained model
         if args.model_path != '':
             self._load_pretrain(args.model_path)

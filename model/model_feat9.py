@@ -34,10 +34,11 @@ from loss import ChamferLoss, CrossEntropyLoss, ChamferLoss_m
 # ----------------------------------------
 
 def knn(x, k):
-    batch_size = x.size(0)
+    batch_size = x.size(0)  #(batch_size, num_dims, num_points)
     num_points = x.size(2)
 
-    inner = -2*torch.matmul(x.transpose(2,1),x)
+    inner = -2*torch.matmul(x.transpose(2,1),x) #(batch_size, num_points, num_dims) * (batch_size, num_dims, num_points)  -> (batch_size, num_points, num_points)
+
     xx = torch.sum(x**2, dim=1, keepdim=True)
     pairwise_distance = -xx - inner - xx.transpose(2,1)
 
@@ -104,9 +105,13 @@ def local_maxpool(x, idx):
 def get_graph_feature(x, k=20, idx=None):
     batch_size = x.size(0)
     num_points = x.size(2)
+    num_dims = x.size(1)
     x = x.view(batch_size, -1, num_points)      # (batch_size, num_dims, num_points)
     if idx is None:
-        idx = knn(x, k=k)                       # (batch_size, num_points, k)
+        if num_dims == 12:
+            idx = knn(x[:, 3:6], k=k)
+        else:
+            idx = knn(x[:, 0:3], k=k)                       # (batch_size, num_points, k)
 
     _, num_dims, _ = x.size()
 
@@ -354,7 +359,7 @@ class DGCNN_Seg_Encoder(nn.Module):
             self.k = 20
         else:
             self.k = args.k
-        self.transform_net = Point_Transform_Net()
+        #self.transform_net = Point_Transform_Net()
 
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
@@ -363,7 +368,7 @@ class DGCNN_Seg_Encoder(nn.Module):
         self.bn5 = nn.BatchNorm2d(64)
         self.bn6 = nn.BatchNorm1d(args.feat_dims)
 
-        self.conv1 = nn.Sequential(nn.Conv2d(6, 64, kernel_size=1, bias=False),
+        self.conv1 = nn.Sequential(nn.Conv2d(args.num_dims*2, 64, kernel_size=1, bias=False),
                                    self.bn1,
                                    nn.LeakyReLU(negative_slope=0.2))
         self.conv2 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=1, bias=False),
@@ -387,15 +392,15 @@ class DGCNN_Seg_Encoder(nn.Module):
 
         batch_size = x.size(0)
         num_points = x.size(2)
+        num_dims = x.size(1)
 
-        x0 = get_graph_feature(x, k=self.k)     # (batch_size, 3, num_points) -> (batch_size, 3*2, num_points, k)
-        t = self.transform_net(x0)              # (batch_size, 3, 3)
-        x = x.transpose(2, 1)                   # (batch_size, 3, num_points) -> (batch_size, num_points, 3)
-        x = torch.bmm(x, t)                     # (batch_size, num_points, 3) * (batch_size, 3, 3) -> (batch_size, num_points, 3)
-        x = x.transpose(2, 1)                   # (batch_size, num_points, 3) -> (batch_size, 3, num_points)
+        #x = get_graph_feature(x, k=self.k)     # (batch_size, 9, num_points) -> (batch_size, 9*2, num_points, k)
+        #x = x.transpose(2, 1)                   # (batch_size, 9*2, num_points, k) -> (batch_size, num_points, 9,k)
+        #x = torch.bmm(x, t)                     # (batch_size, num_points, 3) * (batch_size, 3, 3) -> (batch_size, num_points, 3)
+        #x = x.transpose(2, 1)                   # (batch_size, num_points, 3) -> (batch_size, 3, num_points)
 
-        x = get_graph_feature(x, k=self.k)      # (batch_size, 3, num_points) -> (batch_size, 3*2, num_points, k)
-        x = self.conv1(x)                       # (batch_size, 3*2, num_points, k) -> (batch_size, 64, num_points, k)
+        x = get_graph_feature(x, k=self.k)      # (batch_size, num_dims, num_points) -> (batch_size, num_dims*2, num_points, k)
+        x = self.conv1(x)                       # (batch_size, num_dims*2, num_points, k) -> (batch_size, 64, num_points, k)
         x = self.conv2(x)                       # (batch_size, 64, num_points, k) -> (batch_size, 64, num_points, k)
         x1 = x.max(dim=-1, keepdim=False)[0]    # (batch_size, 64, num_points, k) -> (batch_size, 64, num_points)
 
@@ -541,7 +546,7 @@ class PointNetCls(nn.Module):
 # Reconstrucion Network
 # ----------------------------------------
 
-class DGCNN_FoldNet(nn.Module):
+class DGCNN_FoldNet_feat(nn.Module):
     def __init__(self, args):
         super(DGCNN_FoldNet, self).__init__()
         if args.encoder == 'foldingnet':

@@ -32,6 +32,7 @@ import h5py
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from model import DGCNN_FoldNet
+from model_feat9 import DGCNN_FoldNet_feat
 from semseg_net import SemSegNet
 
 
@@ -147,7 +148,7 @@ def _snapshot(save_dir, model, epoch, opt):
 # Train semantic segmentation network
 # ----------------------------------------
 def main(opt):
-    experiment_id = 'Semantic_segmentation_'+ opt.encoder +'_' +opt.pre_ae_epochs + '_' + 	str(opt.feat_dims) + '_' + opt.dataset+'_' + str(opt.percentage)+'_percent'
+    experiment_id = 'Semantic_segmentation_'+ opt.encoder +'_' +opt.pre_ae_epochs + '_' +   str(opt.feat_dims) + '_' + opt.dataset+'_' + str(opt.percentage)+'_percent'
     LOG_FOUT = open(os.path.join(ROOT_DIR, 'LOG', experiment_id+'_train_log.txt'), 'a')
     def log_string(out_str):
         LOG_FOUT.write(out_str + '\n')
@@ -230,14 +231,17 @@ def main(opt):
     
     # load training data
     train_dataset = arch_dataloader.get_dataloader(filelist=train_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False, shuffle=True, random_translate=opt.use_translate, drop_last=True)
+                                                num_workers=4, num_dims=opt.num_dims, group_shuffle=False, shuffle=True, random_translate=opt.use_translate, drop_last=True)
     log_string("classifer set size: " + str(train_dataset.dataset.__len__()))
     val_dataset = arch_dataloader.get_dataloader(filelist=val_filelist, num_points=opt.num_points, batch_size=opt.batch_size, 
-                                                num_workers=4, group_shuffle=False, shuffle=False, random_translate=opt.use_translate, drop_last=False)
+                                                num_workers=4, num_dims=opt.num_dims, group_shuffle=False, shuffle=False, random_translate=opt.use_translate, drop_last=False)
     log_string("classifer set size: " + str(val_dataset.dataset.__len__()))
 
     # load the model for point auto encoder    
-    ae_net = DGCNN_FoldNet(opt)
+    if opt.num_dims == 3:
+        ae_net = DGCNN_FoldNet(opt)
+    else:
+        ae_net = DGCNN_FoldNet_feat(opt)
     if opt.ae_model != '':
         ae_net = load_pretrain(ae_net, os.path.join(ROOT_DIR, opt.ae_model))
     if opt.gpu_mode:
@@ -418,6 +422,8 @@ if __name__ == "__main__":
     parser.add_argument('--encoder', type=str, default='foldingnet', help='encoder use')
     parser.add_argument('--k', type=int, default=None)
     parser.add_argument('--feat_dims', type=int, default=1024)
+    parser.add_argument('--num_dims', type=int, default=3, metavar='N',
+                        help='Number of dims for feature ')
     parser.add_argument('--loss', type=str, default='ChamferLoss', choices=['ChamferLoss_m','ChamferLoss'],
                         help='reconstruction loss')
     parser.add_argument('--use_translate', action='store_true', help='Enables CUDA training')

@@ -47,6 +47,8 @@ def get_parser():
                         help='dropout rate')
     parser.add_argument('--feat_dims', type=int, default=512, metavar='N',
                         help='Number of dims for feature ')
+    parser.add_argument('--num_dims', type=int, default=3, metavar='N',
+                        help='Number of dims for feature ')
     parser.add_argument('--k', type=int, default=None, metavar='N',
                         help='Num of nearest neighbors to use for KNN')
     parser.add_argument('--dataset', type=str, default='shapenetcorev2', metavar='N',

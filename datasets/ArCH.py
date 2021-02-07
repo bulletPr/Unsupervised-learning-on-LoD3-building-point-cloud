@@ -31,7 +31,7 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT_DIR)
 
 sys.path.append(os.path.join(ROOT_DIR, 'utils'))
-from pc_utils import translate_pointcloud, jitter_pointcloud, rotate_pointcloud
+from pc_utils import translate_pointcloud, jitter_pointcloud, rotate_pointcloud, rgb_t_hsv
 from pc_utils import load_sampled_h5_seg, grouped_shuffle
 
 
@@ -65,11 +65,11 @@ class ArchDataset(Dataset):
         
         # data augument
         if self.random_translate:
-            point_set = translate_pointcloud(point_set[:,0:3])
+            point_set[:,0:3] = translate_pointcloud(point_set[:,0:3])
         if self.random_jitter:
-            point_set = jitter_pointcloud(point_set[:,0:3])
+            point_set[:,0:3] = jitter_pointcloud(point_set[:,0:3])
         if self.random_rotate:
-            point_set = rotate_pointcloud(point_set[:,0:3])
+            point_set[:,0:3] = rotate_pointcloud(point_set[:,0:3])
             
         #conver numpy array to pytorch Tensor
         point_set = torch.from_numpy(point_set)

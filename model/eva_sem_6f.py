@@ -32,7 +32,7 @@ import statistics
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(BASE_DIR)
 sys.path.append(os.path.abspath(os.path.join(BASE_DIR, '../datasets')))
-import arch_dataloader
+import arch_aligned_loader
 
 from model import DGCNN_FoldNet
 from model_feat9 import DGCNN_FoldNet_feat
@@ -63,16 +63,15 @@ def main(opt):
     USE_CUDA = True
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     label2color = {
-        0: [255, 255, 255],  # white
-        1: [0, 0, 255],  # blue
-        2: [128, 0, 0],  # maroon
-        3: [255, 0, 255],  # fuchisia
-        4: [0, 128, 0],  # green
-        5: [255, 0, 0],  # red
-        6: [128, 0, 128],  # purple
-        7: [0, 0, 128],  # navy
-        8: [128, 128, 0],  # olive
-        9: [128, 128, 128]
+        0: [0, 0, 255],  # 
+        1: [102, 153, 255],  # 
+        2: [255, 77, 77],  # 
+        3: [255, 102, 163],  # 
+        4: [230, 172, 0],  # 
+        5: [255, 128, 128],  # 
+        6: [255, 0, 102],  # 
+        7: [26, 102, 255],  # 
+        8: [255, 117, 26],  # 
     }
     experiment_id = opt.seg_model.split('/')[-3]+'_test'
     n_epoch = opt.seg_model.split('/')[-1][-7:-4]
@@ -87,8 +86,8 @@ def main(opt):
         os.makedirs(save_dir)
     if opt.visual:
         if opt.dataset == 'arch':
-            fout = open(os.path.join(save_dir, 'Scene_A_pred.obj'),'w')
-            fout_gt = open(os.path.join(save_dir, 'Scene_A_gt.obj'), 'w')
+            fout = open(os.path.join(save_dir, 'Scene_B_pred.obj'),'w')
+            fout_gt = open(os.path.join(save_dir, 'Scene_B_gt.obj'), 'w')
         elif opt.dataset == 'arch_scene_2':
             fout = open(os.path.join(save_dir, 'Scene_2_pred.obj'),'w')
             fout_gt = open(os.path.join(save_dir, 'Scene_2_gt.obj'), 'w')
@@ -163,7 +162,7 @@ def main(opt):
         log_string('-Now loading test ArCH dataset...')
         filelist = os.path.join(DATA_DIR, arch_dir, "test_data_files.txt")
         # load test data
-        dataloader = arch_dataloader.get_dataloader(filelist=filelist, num_dims=opt.num_dims, batch_size=opt.batch_size, num_points = opt.num_points,
+        dataloader = arch_aligned_loader.get_dataloader(filelist=filelist, batch_size=opt.batch_size, num_dims=opt.num_dims, num_points = opt.num_points,
                                                 num_workers=4, group_shuffle=False,shuffle=False, random_rotate=False, random_jitter=False,random_translate=opt.use_translate, drop_last=False)
         log_string("classifer set size: " + str(dataloader.dataset.__len__()))
     elif opt.dataset == 'arch_scene_2':
@@ -186,8 +185,19 @@ def main(opt):
         total_seen_class_tmp = [0 for _ in range(NUM_CLASSES)]
         total_correct_class_tmp = [0 for _ in range(NUM_CLASSES)]
         total_iou_deno_class_tmp = [0 for _ in range(NUM_CLASSES)]
-        
-        points, target = data        
+        points, target = data
+        if batch_id == 0:
+            print(points.shape)
+        #points_no_aligned = np.zeros((opt.batch_size, opt.num_points, 3))
+        if opt.num_dims ==3:
+            points_no_aligned = points[:,:,3:6]
+            points = points[:,:,0:3]
+        elif opt.num_dims ==6:
+            points_no_aligned = points[:,:,6:9]
+            points = points[:,:,0:6]
+        elif opt.num_dims ==9:
+            points_no_aligned = points[:,:,9:12]
+            points = points[:,:,0:9]
         if(points.size(0)<opt.batch_size):
             break
 
@@ -216,6 +226,7 @@ def main(opt):
         correct_sum=correct_sum+correct.item()
         target = target.cpu().data.numpy()
         pred_choice = pred_choice.cpu().data.numpy()
+
         # calculate the accuracy with the GT
         for l in range(NUM_CLASSES):
             total_seen_class_tmp[l] += np.sum((target == l))
@@ -232,16 +243,20 @@ def main(opt):
         #log_string('Mean IoU of batch %d in Scene_A: %.4f' % (batch_id+1,tmp_iou))
         #log_string('----------------------------')
 
-        points_collector.extend(points.reshape((-1,3)).numpy())
+        points_collector.extend(points_no_aligned.reshape((-1,3)).numpy())
         pd_labels_collector.extend(pred_choice)
         gt_labels_collector.extend(target)
     
     if opt.visual:
         log_string('Writing results...')
         sparse_labels = np.array(pd_labels_collector).astype(int).flatten()
+        print(sparse_labels.shape)
+        sparse_points = np.array(points_collector).reshape((-1, 3))
+        print(sparse_points.shape)
+        assert(sparse_points.shape[0] == sparse_labels.shape[0])
         if opt.dataset == 'arch':
-            pd_label_filename = save_dir + '/Scene_A_pd_labels.txt'
-            gt_label_filename = save_dir + '/Scene_A_gt_labels.txt'
+            pd_label_filename = save_dir + '/Scene_B_pd_labels.txt'
+            gt_label_filename = save_dir + '/Scene_B_gt_labels.txt'
         elif opt.dataset == 'arch_scene_2':
             pd_label_filename = save_dir + '/Scene_2_pd_labels.txt'
             gt_label_filename = save_dir + '/Scene_2_gt_labels.txt'
@@ -249,10 +264,8 @@ def main(opt):
         #log_string("Exported sparse labels to {}".format(pd_label_filename))
         gt_labels = np.array(gt_labels_collector).astype(int).flatten()
         #np.savetxt(gt_label_filename, gt_labels, fmt='%d', delimiter='\n')
-        #log_string("Exported sparse labels to {}".format(gt_label_filename))
-        #print(points_collector.size())
-        sparse_points = np.array(points_collector).reshape((-1, 3))
-
+        #log_string("Exported gt labels to {}".format(gt_label_filename))
+        
         for i in range(gt_labels.shape[0]):
             color = label2color[sparse_labels[i]]
             color_gt = label2color[gt_labels[i]]

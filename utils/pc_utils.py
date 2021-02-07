@@ -21,6 +21,7 @@
 # ----------------------------------------
 import numpy as np
 import h5py
+from skimage import color
 
 import os.path
 
@@ -52,6 +53,10 @@ def rotate_pointcloud(pointcloud):
     pointcloud[:,[0,2]] = pointcloud[:,[0,2]].dot(rotation_matrix) # random rotation (x,z)
     return pointcloud
 
+def rgb_t_hsv(points_colors):
+    points_colors[:,0:3] /= 255.0
+    color.rgb2hsv(points_colors)
+    return points_colors
 
 def getshiftedpc(point_set):
     xyz_min = np.amin(point_set, axis=0)[0:3]
